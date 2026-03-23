@@ -34,7 +34,7 @@ bool save();
 const BookEntry* getEntry(const String& filename);
 
 // Set/update an entry. Creates if it doesn't exist.
-void setEntry(const String& filename, BookStatus status, uint16_t page);
+void setEntry(const String& filename, BookStatus status, uint16_t page, uint32_t byteOffset = 0);
 
 // Remove an entry (when book is deleted)
 void removeEntry(const String& filename);

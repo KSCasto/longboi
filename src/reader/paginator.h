@@ -34,6 +34,9 @@ public:
     // Get the file path that was paginated
     const char* getFilePath() const { return _filePath.c_str(); }
 
+    // Find the page containing a given byte offset (binary search)
+    uint16_t pageForByteOffset(size_t offset) const;
+
 private:
     String _filePath;
     std::vector<PageInfo> _pages;

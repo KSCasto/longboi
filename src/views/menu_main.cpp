@@ -114,129 +114,55 @@ ViewResult run() {
     items[itemCount++] = {"Settings", true};
 
     int8_t selected = 0;
-    bool rightActive = false;
-    int8_t rightSelected = 0;
 
-    // Right-panel submenu items for Resume
-    MenuItem resumeSubItems[] = {
-        {"Open book", true},
-        {"View bookmarks", true},
-        {"Mark as read", true},
+    auto redraw = [&]() {
+        Display::clearBuffer();
+        UI::drawLeftPanel(items, itemCount, selected, -1, true);
+        UI::drawDivider();
+        drawPreviewForItem(selected, hasResume, resumeBook);
+        UI::drawBatteryTopRight();
     };
-    int resumeSubCount = 3;
 
     // Initial draw
-    Display::clearBuffer();
-    UI::drawLeftPanel(items, itemCount, selected, -1, true);
-    UI::drawDivider();
-    drawPreviewForItem(selected, hasResume, resumeBook);
-    UI::drawBatteryTopRight();
+    redraw();
     Display::update(true);
 
     while (true) {
         Event e = Input::poll();
         if (e == Event::NONE) { Input::lightSleep(); continue; }
 
-        if (!rightActive) {
-            // Left panel is active
-            switch (e) {
-                case Event::SCROLL_UP:
-                    if (selected > 0) {
-                        selected--;
-                        drawPreviewForItem(selected, hasResume, resumeBook);
-                        UI::drawLeftPanel(items, itemCount, selected, -1, true);
-                        UI::drawDivider();
-                        UI::drawBatteryTopRight();
-                        Display::update(false,true);
-                    }
-                    break;
+        switch (e) {
+            case Event::SCROLL_UP:
+                selected = (selected > 0) ? selected - 1 : itemCount - 1;
+                redraw();
+                Display::update();
+                break;
 
-                case Event::SCROLL_DOWN:
-                    if (selected < itemCount - 1) {
-                        selected++;
-                        UI::drawLeftPanel(items, itemCount, selected, -1, true);
-                        drawPreviewForItem(selected, hasResume, resumeBook);
-                        UI::drawDivider();
-                        UI::drawBatteryTopRight();
-                        Display::update(false,true);
-                    }
-                    break;
+            case Event::SCROLL_DOWN:
+                selected = (selected < itemCount - 1) ? selected + 1 : 0;
+                redraw();
+                Display::update();
+                break;
 
-                case Event::SELECT: {
-                    int actualIdx = hasResume ? selected : selected + 1;
-                    switch (actualIdx) {
-                        case 0:
-                            // Resume — activate right panel submenu
-                            rightActive = true;
-                            rightSelected = 0;
-                            UI::drawLeftPanel(items, itemCount, -1, selected, false);
-                            UI::drawRightMenu(resumeSubItems, resumeSubCount, rightSelected);
-                            UI::drawDivider();
-                            Display::update(true);
-                            break;
-                        case 1: return ViewResult::OPEN_LIBRARY;
-                        case 2: return ViewResult::OPEN_BOOKMARKS;
-                        case 3: return ViewResult::OPEN_UPLOAD;
-                        case 4: return ViewResult::OPEN_SETTINGS;
-                    }
-                    break;
+            case Event::SELECT:
+            case Event::MENU: {
+                int actualIdx = hasResume ? selected : selected + 1;
+                switch (actualIdx) {
+                    case 0:
+                        // Resume — go straight to reading
+                        g_bookToOpen = resumeBook->filename;
+                        g_pageToOpen = resumeBook->page;
+                        return ViewResult::OPEN_BOOK;
+                    case 1: return ViewResult::OPEN_LIBRARY;
+                    case 2: return ViewResult::OPEN_BOOKMARKS;
+                    case 3: return ViewResult::OPEN_UPLOAD;
+                    case 4: return ViewResult::OPEN_SETTINGS;
                 }
-
-                default:
-                    break;
+                break;
             }
-        } else {
-            // Right panel is active (Resume submenu)
-            switch (e) {
-                case Event::SCROLL_UP:
-                    if (rightSelected > 0) {
-                        rightSelected--;
-                        UI::drawRightMenu(resumeSubItems, resumeSubCount, rightSelected);
-                        Display::update();
-                    }
-                    break;
 
-                case Event::SCROLL_DOWN:
-                    if (rightSelected < resumeSubCount - 1) {
-                        rightSelected++;
-                        UI::drawRightMenu(resumeSubItems, resumeSubCount, rightSelected);
-                        Display::update();
-                    }
-                    break;
-
-                case Event::SELECT:
-                    switch (rightSelected) {
-                        case 0:
-                            // Open book
-                            g_bookToOpen = resumeBook->filename;
-                            g_pageToOpen = resumeBook->page;
-                            return ViewResult::OPEN_BOOK;
-                        case 1:
-                            // View bookmarks — go to bookmarks view
-                            return ViewResult::OPEN_BOOKMARKS;
-                        case 2:
-                            // Mark as read
-                            Library::setEntry(resumeBook->filename,
-                                              BookStatus::READ_DONE, resumeBook->page);
-                            return ViewResult::MAIN_MENU;  // Refresh menu
-                    }
-                    break;
-
-                case Event::EXIT:
-                    // Deactivate right panel, return to left
-                    rightActive = false;
-                    UI::drawLeftPanel(items, itemCount, selected, -1, true);
-                    drawPreviewForItem(selected, hasResume, resumeBook);
-                    UI::drawDivider();
-                    Display::update(true);
-                    break;
-
-                case Event::MENU:
-                    return ViewResult::MAIN_MENU;
-
-                default:
-                    break;
-            }
+            default:
+                break;
         }
     }
 }

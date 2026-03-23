@@ -47,10 +47,11 @@ CompletionResult run(const char* bookFilename) {
             case Event::SCROLL_DOWN:
                 selected = 1 - selected;
                 draw();
-                Display::update();
+                Display::update(true);
                 break;
 
             case Event::SELECT:
+            case Event::MENU:
                 return selected == 0 ? CompletionResult::MARK_AS_READ
                                      : CompletionResult::KEEP_READING;
 

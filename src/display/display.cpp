@@ -5,7 +5,7 @@
 
 static uint8_t ImageBW[EPD_W * EPD_H / 8];
 static uint8_t partialCount = 0;
-static const uint8_t MAX_PARTIALS = 3;
+static const uint8_t MAX_PARTIALS = 10;
 
 // Clear old/RED registers (0x26/0xA6) to 0x00.
 // Full refresh uses 3-color mode (0xF7) where 0x26 is the RED plane,
@@ -30,7 +30,6 @@ void init() {
     Paint_NewImage(ImageBW, EPD_W, EPD_H, 180, WHITE);
     Paint_Clear(WHITE);
 
-    // Initial full refresh clears display and syncs old buffer
     update(true);
 }
 
@@ -58,19 +57,27 @@ uint8_t getPixel(int16_t x, int16_t y) {
 }
 
 void update(bool full, bool skipCount) {
-    EPD_Display(ImageBW);
     if (full || partialCount >= MAX_PARTIALS) {
-        // Full refresh (3-color mode 0xF7): 0x26 is RED plane, must be 0x00
-        clearOldRegisters();
-        EPD_Update();
+        // FULL REFRESH: HW reset → configure → send data → 0xF7 flash
+        EPD_Init();                      // HW+SW reset (clean slate)
+        EPD_WR_REG(0x18);               // Temperature sensor control
+        EPD_WR_DATA8(0x80);             // Internal sensor (default 0x48 = garbage)
+        EPD_WR_REG(0x3C);               // Border waveform control
+        EPD_WR_DATA8(0x01);             // Follow LUT
+        EPD_Display(ImageBW);            // Write image to 0x24/0xA4
+        clearOldRegisters();             // Clear RED plane (0x26/0xA6 = 0x00)
+        EPD_Update();                    // 0xF7 full update (loads temp+LUT itself)
         partialCount = 0;
     } else {
-        // Partial refresh (B/W mode 0xDC): 0x26 is old image for diffing
-        EPD_PartUpdate();
+        // PARTIAL REFRESH: write new image + inverted old → 0xDC drives ALL pixels
+        // The inverted old buffer makes every pixel appear "changed" to the controller,
+        // forcing it to drive all pixels to their correct state (no half-gray text).
+        // This is what the Elecrow library's invert parameter was designed for.
+        EPD_Display(ImageBW);            // Write new image to 0x24/0xA4
+        EPD_Display_Old(ImageBW, 1);     // Write ~image to 0x26/0xA6 (all pixels "changed")
+        EPD_PartUpdate();                // 0xDC drives every pixel
         if (!skipCount) partialCount++;
     }
-    // Sync old buffer with current content for next partial refresh
-    EPD_Display_Old(ImageBW, 0);
 }
 
 void sleep() {
@@ -81,6 +88,7 @@ void wake() {
     EPD_GPIOInit();
     EPD_Init();
     Paint_NewImage(ImageBW, EPD_W, EPD_H, 180, WHITE);
+    partialCount = MAX_PARTIALS;  // Force full refresh on next update()
 }
 
 void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint8_t color) {

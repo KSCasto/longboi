@@ -72,13 +72,14 @@ const BookEntry* getEntry(const String& filename) {
     return nullptr;
 }
 
-void setEntry(const String& filename, BookStatus status, uint16_t page) {
+void setEntry(const String& filename, BookStatus status, uint16_t page, uint32_t byteOffset) {
     uint32_t now = millis() / 1000;  // Approximate — no RTC on board
 
     for (auto& e : entries) {
         if (e.filename == filename) {
             e.status = status;
             e.page = page;
+            e.byteOffset = byteOffset;
             e.updated = now;
             save();
             return;
@@ -90,6 +91,7 @@ void setEntry(const String& filename, BookStatus status, uint16_t page) {
     e.filename = filename;
     e.status = status;
     e.page = page;
+    e.byteOffset = byteOffset;
     e.updated = now;
     entries.push_back(e);
     save();

@@ -47,8 +47,8 @@ static bool bootInit() {
     // digitalWrite(LED_PWR_PIN, LOW);
     // #endif
 
-    // CPU at 40MHz for normal operation
-    setCpuFrequencyMhz(40);
+    // CPU at max for snappy navigation
+    setCpuFrequencyMhz(240);
 
     // Initialize display
     Display::init();

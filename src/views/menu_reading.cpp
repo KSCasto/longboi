@@ -64,6 +64,7 @@ static uint16_t runPagePicker(uint16_t currentPage, uint16_t totalPages) {
                 Display::update(false, true);
                 break;
             case Event::SELECT:
+            case Event::MENU:
                 return page - 1;  // Convert back to 0-indexed
             default: break;
         }
@@ -120,22 +121,19 @@ ReadingMenuResult run(const char* bookFilename, uint16_t currentPage,
 
         switch (e) {
             case Event::SCROLL_UP:
-                if (selected > 0) {
-                    selected--;
-                    drawOverlay();
-                    Display::update();
-                }
+                selected = (selected > 0) ? selected - 1 : itemCount - 1;
+                drawOverlay();
+                Display::update();
                 break;
 
             case Event::SCROLL_DOWN:
-                if (selected < itemCount - 1) {
-                    selected++;
-                    drawOverlay();
-                    Display::update();
-                }
+                selected = (selected < itemCount - 1) ? selected + 1 : 0;
+                drawOverlay();
+                Display::update();
                 break;
 
             case Event::SELECT:
+            case Event::MENU:
                 switch (selected) {
                     case 0: {
                         // Go to Page

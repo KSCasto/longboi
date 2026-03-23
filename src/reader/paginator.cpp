@@ -134,6 +134,18 @@ const PageInfo& Paginator::getPage(uint16_t pageNum) const {
     return emptyPage;
 }
 
+uint16_t Paginator::pageForByteOffset(size_t offset) const {
+    if (_pages.empty()) return 0;
+    // Binary search for the page containing this offset
+    uint16_t lo = 0, hi = _pages.size() - 1;
+    while (lo < hi) {
+        uint16_t mid = lo + (hi - lo + 1) / 2;
+        if (_pages[mid].byteOffset <= offset) lo = mid;
+        else hi = mid - 1;
+    }
+    return lo;
+}
+
 const FontDef& Paginator::fontForLine(const char* line) const {
     // Check Markdown prefixes
     if (strncmp(line, "## ", 3) == 0) return font_medium;

@@ -152,27 +152,25 @@ ViewResult run() {
         if (!rightActive) {
             switch (e) {
                 case Event::SCROLL_UP:
-                    if (selected > 0) {
-                        selected--;
-                        UI::drawLeftPanel(leftItems, totalItems, selected, -1, true);
-                        if (selected > 0) drawBookPreview(selected - 1);
-                        else UI::clearRightPanel();
-                        UI::drawDivider();
-                        Display::update(false, true);
-                    }
+                    selected = (selected > 0) ? selected - 1 : totalItems - 1;
+                    UI::drawLeftPanel(leftItems, totalItems, selected, -1, true);
+                    if (selected > 0) drawBookPreview(selected - 1);
+                    else UI::clearRightPanel();
+                    UI::drawDivider();
+                    Display::update();
                     break;
 
                 case Event::SCROLL_DOWN:
-                    if (selected < totalItems - 1) {
-                        selected++;
-                        UI::drawLeftPanel(leftItems, totalItems, selected, -1, true);
-                        drawBookPreview(selected - 1);
-                        UI::drawDivider();
-                        Display::update(false, true);
-                    }
+                    selected = (selected < totalItems - 1) ? selected + 1 : 0;
+                    UI::drawLeftPanel(leftItems, totalItems, selected, -1, true);
+                    if (selected > 0) drawBookPreview(selected - 1);
+                    else UI::clearRightPanel();
+                    UI::drawDivider();
+                    Display::update();
                     break;
 
                 case Event::SELECT:
+                case Event::MENU:
                     if (selected == 0) {
                         // Cycle sort mode
                         switch (sortMode) {
@@ -206,22 +204,19 @@ ViewResult run() {
             int bookIdx = selected - 1;
             switch (e) {
                 case Event::SCROLL_UP:
-                    if (rightSelected > 0) {
-                        rightSelected--;
-                        UI::drawRightMenu(bookSubItems, bookSubCount, rightSelected);
-                        Display::update();
-                    }
+                    rightSelected = (rightSelected > 0) ? rightSelected - 1 : bookSubCount - 1;
+                    UI::drawRightMenu(bookSubItems, bookSubCount, rightSelected);
+                    Display::update();
                     break;
 
                 case Event::SCROLL_DOWN:
-                    if (rightSelected < bookSubCount - 1) {
-                        rightSelected++;
-                        UI::drawRightMenu(bookSubItems, bookSubCount, rightSelected);
-                        Display::update();
-                    }
+                    rightSelected = (rightSelected < bookSubCount - 1) ? rightSelected + 1 : 0;
+                    UI::drawRightMenu(bookSubItems, bookSubCount, rightSelected);
+                    Display::update();
                     break;
 
-                case Event::SELECT: {
+                case Event::SELECT:
+                case Event::MENU: {
                     const BookEntry& book = allEntries[bookIdx];
                     switch (rightSelected) {
                         case 0:
@@ -266,7 +261,7 @@ ViewResult run() {
                                     Display::clearBuffer();
                                     UI::drawConfirmDialog("Delete this book?", yesSelected);
                                     Display::update(true);
-                                } else if (ce == Event::SELECT) {
+                                } else if (ce == Event::SELECT || ce == Event::MENU) {
                                     if (yesSelected) {
                                         String path = String(PATH_BOOKS) + "/" + book.filename;
                                         SDManager::deleteFile(path.c_str());
@@ -308,9 +303,6 @@ ViewResult run() {
                     UI::drawDivider();
                     Display::update(true);
                     break;
-
-                case Event::MENU:
-                    return ViewResult::MAIN_MENU;
 
                 default: break;
             }

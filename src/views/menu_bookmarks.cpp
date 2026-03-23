@@ -78,26 +78,23 @@ ViewResult run() {
         if (!rightActive) {
             switch (e) {
                 case Event::SCROLL_UP:
-                    if (selected > 0) {
-                        selected--;
-                        UI::drawLeftPanel(leftItems, leftCount, selected, -1, true);
-                        drawPreview(selected);
-                        UI::drawDivider();
-                        Display::update();
-                    }
+                    selected = (selected > 0) ? selected - 1 : leftCount - 1;
+                    UI::drawLeftPanel(leftItems, leftCount, selected, -1, true);
+                    drawPreview(selected);
+                    UI::drawDivider();
+                    Display::update();
                     break;
 
                 case Event::SCROLL_DOWN:
-                    if (selected < leftCount - 1) {
-                        selected++;
-                        UI::drawLeftPanel(leftItems, leftCount, selected, -1, true);
-                        drawPreview(selected);
-                        UI::drawDivider();
-                        Display::update();
-                    }
+                    selected = (selected < leftCount - 1) ? selected + 1 : 0;
+                    UI::drawLeftPanel(leftItems, leftCount, selected, -1, true);
+                    drawPreview(selected);
+                    UI::drawDivider();
+                    Display::update();
                     break;
 
                 case Event::SELECT:
+                case Event::MENU:
                     if (rightCount > 0) {
                         rightActive = true;
                         rightSelected = 0;
@@ -109,7 +106,6 @@ ViewResult run() {
                     break;
 
                 case Event::EXIT:
-                case Event::MENU:
                     return ViewResult::MAIN_MENU;
 
                 default: break;
@@ -118,25 +114,20 @@ ViewResult run() {
             // Right panel active — scrolling through bookmarks
             switch (e) {
                 case Event::SCROLL_UP:
-                    if (rightSelected > 0) {
-                        rightSelected--;
-                        UI::drawRightMenu(rightItems, rightCount, rightSelected);
-                        Display::update();
-                    }
+                    rightSelected = (rightSelected > 0) ? rightSelected - 1 : rightCount - 1;
+                    UI::drawRightMenu(rightItems, rightCount, rightSelected);
+                    Display::update();
                     break;
 
                 case Event::SCROLL_DOWN:
-                    if (rightSelected < rightCount - 1) {
-                        rightSelected++;
-                        UI::drawRightMenu(rightItems, rightCount, rightSelected);
-                        Display::update();
-                    }
+                    rightSelected = (rightSelected < rightCount - 1) ? rightSelected + 1 : 0;
+                    UI::drawRightMenu(rightItems, rightCount, rightSelected);
+                    Display::update();
                     break;
 
                 case Event::SELECT:
+                case Event::MENU:
                     // Jump to this bookmark's page in the book
-                    // Need to find the actual book filename (with extension)
-                    // The folder name is without extension, so we search library
                     {
                         const auto& allBooks = Library::getAll();
                         for (const auto& entry : allBooks) {
@@ -156,9 +147,6 @@ ViewResult run() {
                     UI::drawDivider();
                     Display::update(true);
                     break;
-
-                case Event::MENU:
-                    return ViewResult::MAIN_MENU;
 
                 default: break;
             }
