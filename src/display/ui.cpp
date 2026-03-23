@@ -1,0 +1,251 @@
+#include "ui.h"
+#include "display.h"
+#include "../epd/EPD.h"
+
+namespace UI {
+
+// =============================================================================
+// Text rendering — delegates to Elecrow EPD_ShowChar
+// =============================================================================
+
+uint8_t drawChar(int16_t x, int16_t y, char c, const FontDef& font, uint8_t color) {
+    if (x < 0 || y < 0) return font.charWidth;
+    // EPD_ShowChar expects color: 0=BLACK, non-zero=WHITE (matches our COL_BLACK/COL_WHITE)
+    EPD_ShowChar((uint16_t)x, (uint16_t)y, (uint16_t)c, font.size, color);
+    return font.charWidth;
+}
+
+int16_t drawString(int16_t x, int16_t y, const char* str, const FontDef& font, uint8_t color) {
+    int16_t curX = x;
+    while (*str) {
+        curX += drawChar(curX, y, *str, font, color);
+        str++;
+    }
+    return curX;
+}
+
+int16_t drawStringWrapped(int16_t x, int16_t y, int16_t maxX, const char* str,
+                          const FontDef& font, uint8_t color) {
+    int16_t curX = x;
+    int16_t curY = y;
+    int16_t lineH = font.lineHeight + LINE_SPACING;
+    int16_t wrapWidth = maxX - x;
+
+    const char* wordStart = str;
+    while (*wordStart) {
+        // Find next word boundary
+        const char* wordEnd = wordStart;
+        while (*wordEnd && *wordEnd != ' ' && *wordEnd != '\n') wordEnd++;
+
+        // Measure word width
+        uint16_t wordW = 0;
+        for (const char* p = wordStart; p < wordEnd; p++) {
+            wordW += getCharWidth(*p, font);
+        }
+
+        // Check if word fits on current line
+        if (curX + wordW > maxX && curX > x) {
+            // Wrap to next line
+            curX = x;
+            curY += lineH;
+        }
+
+        // Draw the word
+        for (const char* p = wordStart; p < wordEnd; p++) {
+            curX += drawChar(curX, curY, *p, font, color);
+        }
+
+        // Handle the delimiter
+        if (*wordEnd == ' ') {
+            curX += getCharWidth(' ', font);
+            wordStart = wordEnd + 1;
+        } else if (*wordEnd == '\n') {
+            curX = x;
+            curY += lineH;
+            wordStart = wordEnd + 1;
+        } else {
+            wordStart = wordEnd;  // End of string
+        }
+    }
+
+    return curY + lineH;
+}
+
+// =============================================================================
+// Two-pane menu system
+// =============================================================================
+
+void drawLeftPanel(const MenuItem* items, uint8_t count,
+                   int8_t selectedIdx, int8_t activeIdx, bool isActive) {
+    clearLeftPanel();
+
+    int16_t y = MARGIN_Y;
+    int16_t lineH = font_regular.lineHeight + LINE_SPACING + 4;
+
+    for (uint8_t i = 0; i < count; i++) {
+        if (!items[i].enabled) continue;
+
+        int16_t x = MARGIN_X;
+        uint8_t color = COL_BLACK;
+
+        // Draw indicator
+        if (isActive && i == selectedIdx) {
+            // Active panel, current selection: show ">"
+            drawChar(x, y, '>', font_regular, color);
+        } else if (!isActive && i == activeIdx) {
+            // Inactive panel, breadcrumb: show "*"
+            drawChar(x, y, '*', font_regular, color);
+        }
+        // Otherwise: no indicator (blank space)
+
+        // Draw label after indicator space
+        x += INDICATOR_W;
+        drawString(x, y, items[i].label, font_regular, color);
+
+        y += lineH;
+    }
+}
+
+void drawRightPreview(const PreviewLine* lines, uint8_t count) {
+    clearRightPanel();
+
+    int16_t y = MARGIN_Y;
+    int16_t x = PANEL_DIVIDER_X + MARGIN_X;
+
+    for (uint8_t i = 0; i < count; i++) {
+        const FontDef& font = lines[i].font ? *lines[i].font : font_regular;
+        int16_t lineH = font.lineHeight + LINE_SPACING + 2;
+
+        drawString(x, y, lines[i].text, font, COL_BLACK);
+        y += lineH;
+    }
+}
+
+void drawRightMenu(const MenuItem* items, uint8_t count, int8_t selectedIdx) {
+    clearRightPanel();
+
+    int16_t y = MARGIN_Y;
+    int16_t lineH = font_regular.lineHeight + LINE_SPACING + 4;
+
+    for (uint8_t i = 0; i < count; i++) {
+        if (!items[i].enabled) continue;
+
+        int16_t x = PANEL_DIVIDER_X + MARGIN_X;
+
+        // Draw ">" indicator for selected item
+        if (i == selectedIdx) {
+            drawChar(x, y, '>', font_regular, COL_BLACK);
+        }
+
+        x += INDICATOR_W;
+        drawString(x, y, items[i].label, font_regular, COL_BLACK);
+
+        y += lineH;
+    }
+}
+
+void drawDivider() {
+    Display::drawVLine(PANEL_DIVIDER_X, 0, EPD_HEIGHT, COL_BLACK);
+}
+
+// =============================================================================
+// Reading view elements
+// =============================================================================
+
+void drawProgressBar(uint16_t currentPage, uint16_t totalPages) {
+    int16_t barY = EPD_HEIGHT - PROGRESS_BAR_H - 2;
+    int16_t barX = MARGIN_X;
+    int16_t barW = EPD_WIDTH - MARGIN_X * 2;
+
+    // Clear the progress bar region
+    Display::fillRect(0, barY - 2, EPD_WIDTH, PROGRESS_BAR_H + 4, COL_WHITE);
+
+    // Draw bar outline
+    Display::drawHLine(barX, barY, barW, COL_BLACK);
+    Display::drawHLine(barX, barY + PROGRESS_BAR_H - 1, barW, COL_BLACK);
+    Display::drawVLine(barX, barY, PROGRESS_BAR_H, COL_BLACK);
+    Display::drawVLine(barX + barW - 1, barY, PROGRESS_BAR_H, COL_BLACK);
+
+    // Fill progress
+    if (totalPages > 0) {
+        int16_t fillW = ((uint32_t)(currentPage) * (barW - 2)) / totalPages;
+        Display::fillRect(barX + 1, barY + 1, fillW, PROGRESS_BAR_H - 2, COL_BLACK);
+    }
+
+    // Draw page number text to the right of the bar
+    char pageStr[24];
+    snprintf(pageStr, sizeof(pageStr), "%d/%d", currentPage, totalPages);
+    int16_t textX = barX + barW + 4;
+    // If text would overflow, put it inside the bar area instead
+    uint16_t textW = getStringWidth(pageStr, font_regular);
+    if (textX + textW > EPD_WIDTH - MARGIN_X) {
+        textX = EPD_WIDTH - MARGIN_X - textW;
+    }
+    drawString(textX, barY, pageStr, font_regular, COL_BLACK);
+}
+
+void drawHorizontalRule(int16_t x, int16_t y, int16_t width) {
+    Display::drawHLine(x, y, width, COL_BLACK);
+    Display::drawHLine(x, y + 1, width, COL_BLACK);  // 2px thick
+}
+
+// =============================================================================
+// Utility
+// =============================================================================
+
+void clearLeftPanel() {
+    Display::fillRect(0, 0, PANEL_DIVIDER_X, EPD_HEIGHT, COL_WHITE);
+}
+
+void clearRightPanel() {
+    Display::fillRect(PANEL_DIVIDER_X, 0, PANEL_RIGHT_W, EPD_HEIGHT, COL_WHITE);
+}
+
+void clearAll() {
+    Display::clearBuffer();
+}
+
+void drawCenteredMessage(const char* msg, const FontDef& font) {
+    clearAll();
+    uint16_t textW = getStringWidth(msg, font);
+    int16_t x = (EPD_WIDTH - textW) / 2;
+    int16_t y = (EPD_HEIGHT - font.lineHeight) / 2;
+    drawString(x, y, msg, font, COL_BLACK);
+}
+
+void drawConfirmDialog(const char* message, bool yesSelected) {
+    // Draw a centered dialog box
+    int16_t boxW = 300;
+    int16_t boxH = 100;
+    int16_t boxX = (EPD_WIDTH - boxW) / 2;
+    int16_t boxY = (EPD_HEIGHT - boxH) / 2;
+
+    // White background with black border
+    Display::fillRect(boxX, boxY, boxW, boxH, COL_WHITE);
+    Display::drawHLine(boxX, boxY, boxW, COL_BLACK);
+    Display::drawHLine(boxX, boxY + boxH - 1, boxW, COL_BLACK);
+    Display::drawVLine(boxX, boxY, boxH, COL_BLACK);
+    Display::drawVLine(boxX + boxW - 1, boxY, boxH, COL_BLACK);
+
+    // Message text
+    drawString(boxX + 10, boxY + 10, message, font_regular, COL_BLACK);
+
+    // Yes / No buttons
+    int16_t btnY = boxY + boxH - 35;
+    const char* yesLabel = "Yes";
+    const char* noLabel = "No";
+
+    if (yesSelected) {
+        drawString(boxX + 40, btnY, "> ", font_regular, COL_BLACK);
+        drawString(boxX + 56, btnY, yesLabel, font_bold, COL_BLACK);
+        drawString(boxX + 180, btnY, "  ", font_regular, COL_BLACK);
+        drawString(boxX + 196, btnY, noLabel, font_regular, COL_BLACK);
+    } else {
+        drawString(boxX + 40, btnY, "  ", font_regular, COL_BLACK);
+        drawString(boxX + 56, btnY, yesLabel, font_regular, COL_BLACK);
+        drawString(boxX + 180, btnY, "> ", font_regular, COL_BLACK);
+        drawString(boxX + 196, btnY, noLabel, font_bold, COL_BLACK);
+    }
+}
+
+}  // namespace UI

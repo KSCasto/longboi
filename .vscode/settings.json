@@ -1,0 +1,6 @@
+{
+    "claudeCodeChat.permissions.yoloMode": true,
+    "C_Cpp.intelliSenseEngine": "Tag Parser",
+    "C_Cpp.workspaceParsingPriority": "low",
+    "C_Cpp.intelliSenseCacheSize": 0
+}
