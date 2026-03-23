@@ -132,16 +132,38 @@ int16_t renderPage(const char* text, int16_t x, int16_t y, int16_t maxX, int16_t
         const char* lineEnd = p;
         while (*lineEnd && *lineEnd != '\n') lineEnd++;
 
-        // Copy line into fixed buffer, stripping non-ASCII bytes
+        // Copy line into fixed buffer, converting Unicode to ASCII
         size_t srcLen = lineEnd - p;
         size_t j = 0;
-        for (size_t i = 0; i < srcLen && j < sizeof(lineBuf) - 1; i++) {
+        for (size_t i = 0; i < srcLen && j < sizeof(lineBuf) - 4; i++) {
             uint8_t ch = (uint8_t)p[i];
             if (ch >= 0x80) {
-                // Skip multi-byte UTF-8 sequences
-                if (ch >= 0xF0) i += 3;       // 4-byte
-                else if (ch >= 0xE0) i += 2;  // 3-byte (includes BOM)
-                else if (ch >= 0xC0) i += 1;  // 2-byte
+                // Decode UTF-8 and map common characters to ASCII
+                uint32_t cp = 0;
+                if (ch >= 0xF0 && i + 3 < srcLen) {
+                    i += 3;  // 4-byte (emoji etc) — skip
+                } else if (ch >= 0xE0 && i + 2 < srcLen) {
+                    cp = ((uint32_t)(ch & 0x0F) << 12) |
+                         ((uint32_t)((uint8_t)p[i+1] & 0x3F) << 6) |
+                         ((uint32_t)((uint8_t)p[i+2] & 0x3F));
+                    i += 2;
+                } else if (ch >= 0xC0 && i + 1 < srcLen) {
+                    cp = ((uint32_t)(ch & 0x1F) << 6) |
+                         ((uint32_t)((uint8_t)p[i+1] & 0x3F));
+                    i += 1;
+                }
+                char r = 0;
+                switch (cp) {
+                    case 0x2014: case 0x2013: r = '-'; break;  // em/en-dash
+                    case 0x2018: case 0x2019: r = '\''; break; // smart single quotes
+                    case 0x201C: case 0x201D: r = '"'; break;  // smart double quotes
+                    case 0x00A0: r = ' '; break;               // non-breaking space
+                    case 0x2026:                                // ellipsis → ...
+                        lineBuf[j++] = '.'; lineBuf[j++] = '.'; lineBuf[j++] = '.';
+                        break;
+                    default: break;
+                }
+                if (r) lineBuf[j++] = r;
                 continue;
             }
             if (ch == '\r') continue;  // Strip \r

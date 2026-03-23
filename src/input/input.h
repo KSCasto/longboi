@@ -43,4 +43,7 @@ void resetActivity();
 // Get milliseconds since last activity
 uint32_t idleMillis();
 
+// Enter deep sleep if idle timeout exceeded
+void checkAutoSleep();
+
 }  // namespace Input

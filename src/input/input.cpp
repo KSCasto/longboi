@@ -1,4 +1,5 @@
 #include "input.h"
+#include "../settings/settings.h"
 #include "driver/gpio.h"
 #include "esp_sleep.h"
 
@@ -78,7 +79,10 @@ Event poll() {
     // Scan buttons every poll call
     scan();
 
-    if (queueHead == queueTail) return Event::NONE;
+    if (queueHead == queueTail) {
+        checkAutoSleep();
+        return Event::NONE;
+    }
 
     Event e = eventQueue[queueTail];
     queueTail = (queueTail + 1) % EVENT_QUEUE_SIZE;
@@ -116,6 +120,22 @@ void resetActivity() {
 
 uint32_t idleMillis() {
     return millis() - lastActivityMs;
+}
+
+void checkAutoSleep() {
+    uint8_t mins = Settings::autoSleepMinutes();
+    if (mins == 0) return;
+    if (idleMillis() < (uint32_t)mins * 60000UL) return;
+
+    Serial.printf("[Input] Auto-sleep after %d min idle\n", mins);
+    Serial.flush();
+
+    uint64_t mask = (1ULL << ROTARY_CLK_PIN) | (1ULL << ROTARY_DT_PIN) |
+                    (1ULL << ROTARY_SW_PIN) | (1ULL << BTN_MENU_PIN) |
+                    (1ULL << BTN_EXIT_PIN);
+    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);  // Clear light-sleep timer
+    esp_sleep_enable_ext1_wakeup(mask, ESP_EXT1_WAKEUP_ANY_LOW);
+    esp_deep_sleep_start();
 }
 
 }  // namespace Input
