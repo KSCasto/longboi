@@ -37,4 +37,10 @@ bool isHeld(Event button);
 // Saves ~35mA vs active polling with delay().
 void lightSleep();
 
+// Reset the activity timer (for auto-sleep tracking)
+void resetActivity();
+
+// Get milliseconds since last activity
+uint32_t idleMillis();
+
 }  // namespace Input

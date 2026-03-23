@@ -21,6 +21,9 @@ static bool prevSelect = false;
 static bool prevMenu = false;
 static bool prevExit = false;
 
+// Activity tracking for auto-sleep
+static uint32_t lastActivityMs = 0;
+
 static void enqueue(Event e) {
     uint8_t next = (queueHead + 1) % EVENT_QUEUE_SIZE;
     if (next != queueTail) {
@@ -79,6 +82,7 @@ Event poll() {
 
     Event e = eventQueue[queueTail];
     queueTail = (queueTail + 1) % EVENT_QUEUE_SIZE;
+    lastActivityMs = millis();
     return e;
 }
 
@@ -104,6 +108,14 @@ bool isHeld(Event button) {
 void lightSleep() {
     esp_sleep_enable_timer_wakeup(10000);  // 10ms fallback
     esp_light_sleep_start();
+}
+
+void resetActivity() {
+    lastActivityMs = millis();
+}
+
+uint32_t idleMillis() {
+    return millis() - lastActivityMs;
 }
 
 }  // namespace Input

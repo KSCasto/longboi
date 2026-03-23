@@ -5,6 +5,7 @@
 #include "../input/input.h"
 #include "../storage/sd_manager.h"
 #include "../storage/library.h"
+#include "../settings/settings.h"
 
 static Paginator paginator;
 static uint16_t curPage = 0;
@@ -12,6 +13,51 @@ static String bookFilename;
 static char* pageTextBuf = nullptr;
 static const size_t PAGE_TEXT_BUF_SIZE = 8192;  // Max bytes per page
 static bool needsFullRefresh = true;  // First render after open uses full refresh
+
+// Reflow hard-wrapped paragraphs: replace paragraph-internal \n with space.
+// Preserves blank lines (\n\n) and lines starting with # (headings).
+// This makes text from sources like Project Gutenberg word-wrap naturally.
+static void reflowText(char* text, size_t len) {
+    bool lineIsSpecial = false;
+    bool atLineStart = true;
+    bool lineHasContent = false;
+
+    for (size_t i = 0; i < len; i++) {
+        char c = text[i];
+        if (c == '\r') continue;
+
+        if (c == '\n') {
+            if (!lineHasContent || lineIsSpecial) {
+                // Empty line or special line — keep the newline
+                lineIsSpecial = false;
+                lineHasContent = false;
+                atLineStart = true;
+                continue;
+            }
+
+            // Peek at next non-\r character
+            size_t ni = i + 1;
+            while (ni < len && text[ni] == '\r') ni++;
+
+            if (ni < len && text[ni] != '\n' && text[ni] != '#') {
+                text[i] = ' ';  // Reflow: join with next line
+            }
+
+            lineIsSpecial = false;
+            lineHasContent = false;
+            atLineStart = true;
+            continue;
+        }
+
+        if (c != ' ' && c != '\t') {
+            lineHasContent = true;
+            if (atLineStart) {
+                lineIsSpecial = (c == '#');
+                atLineStart = false;
+            }
+        }
+    }
+}
 
 // Helper: get byte offset of current page for saving progress
 static uint32_t curByteOffset() {
@@ -83,6 +129,7 @@ void renderCurrentPage() {
                                                 (uint8_t*)pageTextBuf,
                                                 page.byteOffset, toRead);
         pageTextBuf[bytesRead] = '\0';
+        reflowText(pageTextBuf, bytesRead);
         Renderer::renderPage(pageTextBuf,
                              MARGIN_X, MARGIN_Y,
                              PANEL_LEFT_W - MARGIN_X,
@@ -97,6 +144,7 @@ void renderCurrentPage() {
                                                 (uint8_t*)pageTextBuf,
                                                 page.byteOffset, toRead);
         pageTextBuf[bytesRead] = '\0';
+        reflowText(pageTextBuf, bytesRead);
         Renderer::renderPage(pageTextBuf,
                              PANEL_DIVIDER_X + MARGIN_X, MARGIN_Y,
                              EPD_WIDTH - MARGIN_X,
@@ -174,23 +222,29 @@ ReaderResult run() {
 
         switch (e) {
             case Event::SCROLL_DOWN:
-            case Event::MENU:
-                // Next page spread
-                if (isLastPage()) {
-                    return ReaderResult::BOOK_FINISHED;
-                }
-                if (nextPage()) {
-                    renderCurrentPage();
+            case Event::MENU: {
+                // Next/prev depending on invert setting (buttons always forward)
+                bool forward = (e == Event::MENU) || !Settings::invertScroll();
+                if (forward) {
+                    if (isLastPage()) return ReaderResult::BOOK_FINISHED;
+                    if (nextPage()) renderCurrentPage();
+                } else {
+                    if (prevPage()) renderCurrentPage();
                 }
                 break;
+            }
 
             case Event::SCROLL_UP:
-            case Event::EXIT:
-                // Previous page spread
-                if (prevPage()) {
-                    renderCurrentPage();
+            case Event::EXIT: {
+                bool backward = (e == Event::EXIT) || !Settings::invertScroll();
+                if (backward) {
+                    if (prevPage()) renderCurrentPage();
+                } else {
+                    if (isLastPage()) return ReaderResult::BOOK_FINISHED;
+                    if (nextPage()) renderCurrentPage();
                 }
                 break;
+            }
 
             case Event::SELECT:
                 return ReaderResult::OPEN_READING_MENU;

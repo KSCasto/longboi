@@ -1,5 +1,6 @@
 #include "paginator.h"
 #include "../storage/sd_manager.h"
+#include "../settings/settings.h"
 
 // Read buffer size — read file in chunks to avoid loading entire book into RAM
 #define READ_BUF_SIZE 4096
@@ -152,20 +153,22 @@ const FontDef& Paginator::fontForLine(const char* line) const {
     if (strncmp(line, "# ", 2) == 0)  return font_large;
     // Horizontal rule
     if (strcmp(line, "---") == 0 || strcmp(line, "***") == 0 || strcmp(line, "___") == 0) {
-        return font_regular;  // HR takes one line height
+        return Settings::bodyFont();
     }
-    return font_regular;
+    return Settings::bodyFont();
 }
 
 int16_t Paginator::lineHeight(const char* line, int16_t maxWidth) const {
+    const FontDef& bodyFont = Settings::bodyFont();
+
     // Empty line = one regular line height (paragraph spacing)
     if (line[0] == '\0') {
-        return font_regular.lineHeight + LINE_SPACING;
+        return bodyFont.lineHeight + LINE_SPACING;
     }
 
     // Horizontal rule
     if (strcmp(line, "---") == 0 || strcmp(line, "***") == 0 || strcmp(line, "___") == 0) {
-        return font_regular.lineHeight;  // Fixed height for HR
+        return bodyFont.lineHeight;  // Fixed height for HR
     }
 
     const FontDef& font = fontForLine(line);

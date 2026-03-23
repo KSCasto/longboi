@@ -191,7 +191,7 @@ ViewResult run() {
                         UI::drawLeftPanel(leftItems, totalItems, -1, selected, false);
                         UI::drawRightMenu(bookSubItems, bookSubCount, rightSelected);
                         UI::drawDivider();
-                        Display::update(true);
+                        Display::update();
                     }
                     break;
 

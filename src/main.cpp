@@ -14,6 +14,8 @@
 #include "views/menu_bookmarks.h"
 #include "views/menu_reading.h"
 #include "views/completion.h"
+#include "views/menu_settings.h"
+#include "settings/settings.h"
 #include "fonts/fonts.h"
 
 // =============================================================================
@@ -67,7 +69,8 @@ static bool bootInit() {
         while (true) { delay(1000); }
     }
 
-    // Load library and sync with SD card
+    // Load settings and library
+    Settings::load();
     Library::load();
     auto books = SDManager::listBooks();
     Library::syncWithSD(books);
@@ -208,6 +211,14 @@ static AppState runReading() {
                         Reader::forceFullRefresh();
                         Reader::renderCurrentPage();
                         break;
+
+                    case ReadingMenuResult::OPEN_SETTINGS:
+                        Reader::close();
+                        return AppState::SETTINGS;
+
+                    case ReadingMenuResult::MAIN_MENU:
+                        Reader::close();
+                        return AppState::MAIN_MENU;
                 }
                 break;
             }
@@ -279,17 +290,11 @@ void loop() {
             state = AppState::MAIN_MENU;
             break;
 
-        case AppState::SETTINGS:
-            // Placeholder
-            UI::drawCenteredMessage("Settings - Coming Soon", font_medium);
-            Display::update(true);
-            while (true) {
-                Event e = Input::poll();
-                if (e == Event::MENU || e == Event::EXIT) break;
-                Input::lightSleep();
-            }
+        case AppState::SETTINGS: {
+            ViewResult vr = MenuSettings::run();
             state = AppState::MAIN_MENU;
             break;
+        }
 
         default:
             state = AppState::MAIN_MENU;

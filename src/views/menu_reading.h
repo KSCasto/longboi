@@ -13,6 +13,8 @@ enum class ReadingMenuResult {
     MARK_AS_READ,   // Mark book as read and exit
     BACK_TO_LIBRARY,// Exit reader, go to library
     GO_TO_PAGE,     // Jump to a specific page
+    OPEN_SETTINGS,  // Open settings menu
+    MAIN_MENU,      // Return to main menu
 };
 
 namespace MenuReading {

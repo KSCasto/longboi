@@ -1,70 +1,82 @@
 #include "renderer.h"
 #include "../display/ui.h"
 #include "../display/display.h"
+#include "../settings/settings.h"
 
 namespace Renderer {
 
-// Draw a line that may contain **bold** segments intermixed with regular text
+// Draw a line that may contain **bold** segments intermixed with regular text.
+// Uses word wrapping: words that don't fit on the current line are moved to
+// the next line. Words wider than the full line are character-wrapped.
 static int16_t renderBoldLine(const char* text, int16_t x, int16_t y,
                               int16_t maxX, const FontDef& baseFont) {
     int16_t curX = x;
     int16_t curY = y;
     int16_t lineH = baseFont.lineHeight + LINE_SPACING;
+    int16_t lineWidth = maxX - x;
     bool inBold = false;
 
     const char* p = text;
-    const char* segStart = p;
 
     while (*p) {
-        // Check for ** delimiter
+        // Handle ** markers — toggle bold, don't render
         if (p[0] == '*' && p[1] == '*') {
-            // Render accumulated segment
-            if (p > segStart) {
-                const FontDef& font = inBold ? font_bold : baseFont;
-                for (const char* c = segStart; c < p; c++) {
-                    uint8_t cw = getCharWidth(*c, font);
-                    if (curX + cw > maxX) {
-                        curX = x;
-                        curY += lineH;
-                    }
-                    curX += UI::drawChar(curX, curY, *c, font, COL_BLACK);
-                }
-            }
             inBold = !inBold;
             p += 2;
-            segStart = p;
             continue;
         }
 
-        // Word wrap check
-        uint8_t cw = getCharWidth(*p, inBold ? font_bold : baseFont);
-        if (curX + cw > maxX && curX > x) {
-            // Render what we have, then wrap
-            const FontDef& font = inBold ? font_bold : baseFont;
-            for (const char* c = segStart; c < p; c++) {
-                uint8_t w = getCharWidth(*c, font);
-                if (curX + w > maxX) {
-                    curX = x;
-                    curY += lineH;
-                }
-                curX += UI::drawChar(curX, curY, *c, font, COL_BLACK);
+        // Handle spaces
+        if (*p == ' ') {
+            uint8_t cw = getCharWidth(' ', baseFont);
+            if (curX + cw > maxX && curX > x) {
+                // Space at end of line — wrap, skip drawing the space
+                curX = x;
+                curY += lineH;
+            } else {
+                const FontDef& font = inBold ? font_bold : baseFont;
+                curX += UI::drawChar(curX, curY, ' ', font, COL_BLACK);
             }
-            segStart = p;
+            p++;
+            continue;
         }
 
-        p++;
-    }
+        // Non-space: measure the full word (skipping ** markers within)
+        const char* wordEnd = p;
+        int16_t wordWidth = 0;
+        bool tempBold = inBold;
+        while (*wordEnd && *wordEnd != ' ') {
+            if (wordEnd[0] == '*' && wordEnd[1] == '*') {
+                tempBold = !tempBold;
+                wordEnd += 2;
+                continue;
+            }
+            const FontDef& font = tempBold ? font_bold : baseFont;
+            wordWidth += getCharWidth(*wordEnd, font);
+            wordEnd++;
+        }
 
-    // Render remaining segment
-    if (p > segStart) {
-        const FontDef& font = inBold ? font_bold : baseFont;
-        for (const char* c = segStart; c < p; c++) {
-            uint8_t cw = getCharWidth(*c, font);
-            if (curX + cw > maxX) {
+        // Word doesn't fit on current line but fits on a full line — wrap first
+        if (curX + wordWidth > maxX && curX > x && wordWidth <= lineWidth) {
+            curX = x;
+            curY += lineH;
+        }
+
+        // Draw the word character by character (handles words wider than line)
+        while (p < wordEnd) {
+            if (p[0] == '*' && p[1] == '*') {
+                inBold = !inBold;
+                p += 2;
+                continue;
+            }
+            const FontDef& font = inBold ? font_bold : baseFont;
+            uint8_t cw = getCharWidth(*p, font);
+            if (curX + cw > maxX && curX > x) {
                 curX = x;
                 curY += lineH;
             }
-            curX += UI::drawChar(curX, curY, *c, font, COL_BLACK);
+            curX += UI::drawChar(curX, curY, *p, font, COL_BLACK);
+            p++;
         }
     }
 
@@ -72,16 +84,18 @@ static int16_t renderBoldLine(const char* text, int16_t x, int16_t y,
 }
 
 int16_t renderLine(const char* line, int16_t x, int16_t y, int16_t maxX) {
+    const FontDef& bodyFont = Settings::bodyFont();
+
     // Empty line — paragraph spacing
     if (line[0] == '\0') {
-        return y + font_regular.lineHeight + LINE_SPACING;
+        return y + bodyFont.lineHeight + LINE_SPACING;
     }
 
     // Horizontal rule: ---  ***  ___
     if (strcmp(line, "---") == 0 || strcmp(line, "***") == 0 || strcmp(line, "___") == 0) {
-        int16_t ruleY = y + font_regular.lineHeight / 2;
+        int16_t ruleY = y + bodyFont.lineHeight / 2;
         UI::drawHorizontalRule(x, ruleY, maxX - x);
-        return y + font_regular.lineHeight + LINE_SPACING;
+        return y + bodyFont.lineHeight + LINE_SPACING;
     }
 
     // H1: # Title
@@ -97,15 +111,15 @@ int16_t renderLine(const char* line, int16_t x, int16_t y, int16_t maxX) {
     }
 
     // Regular text (may contain **bold** segments)
-    return renderBoldLine(line, x, y, maxX, font_regular);
+    return renderBoldLine(line, x, y, maxX, bodyFont);
 }
 
 int16_t renderPage(const char* text, int16_t x, int16_t y, int16_t maxX, int16_t maxY) {
     int16_t curY = y;
     const char* p = text;
 
-    // Static buffer to avoid alloca stack overflow on long lines
-    static char lineBuf[512];
+    // Static buffer — sized for reflowed paragraphs (multiple source lines joined)
+    static char lineBuf[4096];
 
     // Skip UTF-8 BOM if present at start
     if ((uint8_t)p[0] == 0xEF && (uint8_t)p[1] == 0xBB && (uint8_t)p[2] == 0xBF) {

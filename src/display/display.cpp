@@ -2,10 +2,10 @@
 
 #include "../epd/EPD.h"
 #include "../epd/EPD_Init.h"
+#include "../settings/settings.h"
 
 static uint8_t ImageBW[EPD_W * EPD_H / 8];
 static uint8_t partialCount = 0;
-static const uint8_t MAX_PARTIALS = 10;
 
 // Clear old/RED registers (0x26/0xA6) to 0x00.
 // Full refresh uses 3-color mode (0xF7) where 0x26 is the RED plane,
@@ -57,7 +57,7 @@ uint8_t getPixel(int16_t x, int16_t y) {
 }
 
 void update(bool full, bool skipCount) {
-    if (full || partialCount >= MAX_PARTIALS) {
+    if (full || partialCount >= Settings::refreshInterval()) {
         // FULL REFRESH: HW reset → configure → send data → 0xF7 flash
         EPD_Init();                      // HW+SW reset (clean slate)
         EPD_WR_REG(0x18);               // Temperature sensor control
@@ -88,7 +88,7 @@ void wake() {
     EPD_GPIOInit();
     EPD_Init();
     Paint_NewImage(ImageBW, EPD_W, EPD_H, 180, WHITE);
-    partialCount = MAX_PARTIALS;  // Force full refresh on next update()
+    partialCount = 255;  // Force full refresh on next update()
 }
 
 void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint8_t color) {

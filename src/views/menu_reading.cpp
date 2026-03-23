@@ -76,13 +76,15 @@ namespace MenuReading {
 ReadingMenuResult run(const char* bookFilename, uint16_t currentPage,
                       uint16_t totalPages) {
     MenuItem items[] = {
-        {"Go to Page", true},
         {"Add Bookmark", true},
         {"View Bookmarks", true},
+        {"Go to Page", true},
         {"Mark as Read", true},
+        {"Settings", true},
         {"Back to Library", true},
+        {"Main Menu", true},
     };
-    int itemCount = 5;
+    int itemCount = 7;
     int8_t selected = 0;
 
     auto drawOverlay = [&]() {
@@ -136,11 +138,6 @@ ReadingMenuResult run(const char* bookFilename, uint16_t currentPage,
             case Event::MENU:
                 switch (selected) {
                     case 0: {
-                        // Go to Page
-                        s_chosenPage = runPagePicker(currentPage, totalPages);
-                        return ReadingMenuResult::GO_TO_PAGE;
-                    }
-                    case 1: {
                         // Add Bookmark
                         Bookmarks::save(bookFilename, currentPage);
                         UI::drawCenteredMessage("Bookmark saved!", font_regular);
@@ -148,9 +145,16 @@ ReadingMenuResult run(const char* bookFilename, uint16_t currentPage,
                         delay(800);
                         return ReadingMenuResult::RESUME;
                     }
-                    case 2: return ReadingMenuResult::VIEW_BOOKMARKS;
+                    case 1: return ReadingMenuResult::VIEW_BOOKMARKS;
+                    case 2: {
+                        // Go to Page
+                        s_chosenPage = runPagePicker(currentPage, totalPages);
+                        return ReadingMenuResult::GO_TO_PAGE;
+                    }
                     case 3: return ReadingMenuResult::MARK_AS_READ;
-                    case 4: return ReadingMenuResult::BACK_TO_LIBRARY;
+                    case 4: return ReadingMenuResult::OPEN_SETTINGS;
+                    case 5: return ReadingMenuResult::BACK_TO_LIBRARY;
+                    case 6: return ReadingMenuResult::MAIN_MENU;
                 }
                 break;
 
