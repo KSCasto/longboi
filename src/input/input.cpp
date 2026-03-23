@@ -1,4 +1,6 @@
 #include "input.h"
+#include "driver/gpio.h"
+#include "esp_sleep.h"
 
 // =============================================================================
 // Polled input — matches Elecrow's button hardware (external pull-ups on PCB)
@@ -36,6 +38,14 @@ void init() {
     pinMode(ROTARY_SW_PIN, INPUT);   // Confirm / Select
     pinMode(BTN_MENU_PIN, INPUT);    // Menu / Home
     pinMode(BTN_EXIT_PIN, INPUT);    // Exit
+
+    // Configure GPIO wakeup for light sleep (LOW = pressed)
+    gpio_wakeup_enable((gpio_num_t)ROTARY_CLK_PIN, GPIO_INTR_LOW_LEVEL);
+    gpio_wakeup_enable((gpio_num_t)ROTARY_DT_PIN,  GPIO_INTR_LOW_LEVEL);
+    gpio_wakeup_enable((gpio_num_t)ROTARY_SW_PIN,  GPIO_INTR_LOW_LEVEL);
+    gpio_wakeup_enable((gpio_num_t)BTN_MENU_PIN,   GPIO_INTR_LOW_LEVEL);
+    gpio_wakeup_enable((gpio_num_t)BTN_EXIT_PIN,   GPIO_INTR_LOW_LEVEL);
+    esp_sleep_enable_gpio_wakeup();
 }
 
 // Call this from the main loop — scans all buttons for press-release events
@@ -89,6 +99,11 @@ bool isHeld(Event button) {
         case Event::EXIT:   return digitalRead(BTN_EXIT_PIN) == LOW;
         default:            return false;
     }
+}
+
+void lightSleep() {
+    esp_sleep_enable_timer_wakeup(10000);  // 10ms fallback
+    esp_light_sleep_start();
 }
 
 }  // namespace Input

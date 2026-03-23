@@ -38,6 +38,18 @@ static bool bootInit() {
     Serial.begin(115200);
     Serial.println("\n[KiraReader] Booting...");
 
+    // TODO: LED blink on boot — need to identify LED pin for 5.79" board
+    // #ifdef LED_PWR_PIN
+    // pinMode(LED_PWR_PIN, OUTPUT);
+    // digitalWrite(LED_PWR_PIN, HIGH); delay(100);
+    // digitalWrite(LED_PWR_PIN, LOW);  delay(100);
+    // digitalWrite(LED_PWR_PIN, HIGH); delay(100);
+    // digitalWrite(LED_PWR_PIN, LOW);
+    // #endif
+
+    // CPU at 40MHz for normal operation
+    setCpuFrequencyMhz(40);
+
     // Initialize display
     Display::init();
     UI::drawCenteredMessage("KiraReader", font_large);
@@ -161,7 +173,8 @@ static AppState runReading() {
 
             case ReaderResult::OPEN_READING_MENU: {
                 ReadingMenuResult mr = MenuReading::run(Reader::currentBook(),
-                                                        Reader::currentPage());
+                                                        Reader::currentPage(),
+                                                        Reader::totalPages());
                 switch (mr) {
                     case ReadingMenuResult::RESUME:
                         // Continue reading — re-render current page
@@ -189,6 +202,12 @@ static AppState runReading() {
                     case ReadingMenuResult::BACK_TO_LIBRARY:
                         Reader::close();
                         return AppState::LIBRARY;
+
+                    case ReadingMenuResult::GO_TO_PAGE:
+                        Reader::goToPage(MenuReading::getChosenPage());
+                        Reader::forceFullRefresh();
+                        Reader::renderCurrentPage();
+                        break;
                 }
                 break;
             }
@@ -267,7 +286,7 @@ void loop() {
             while (true) {
                 Event e = Input::poll();
                 if (e == Event::MENU || e == Event::EXIT) break;
-                delay(10);
+                Input::lightSleep();
             }
             state = AppState::MAIN_MENU;
             break;

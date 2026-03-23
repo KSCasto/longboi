@@ -163,7 +163,7 @@ ReaderResult run() {
                 return ReaderResult::OPEN_READING_MENU;
 
             case Event::NONE:
-                delay(10);  // Small sleep to avoid busy-waiting
+                Input::lightSleep();
                 break;
         }
     }

@@ -6,27 +6,98 @@
 #include "../storage/library.h"
 #include "../fonts/fonts.h"
 
+static uint16_t s_chosenPage = 0;
+
+// Page number picker — returns 0-indexed page
+// MENU/EXIT: hold to scroll continuously. SCROLL: ±1. SELECT: confirm.
+static uint16_t runPagePicker(uint16_t currentPage, uint16_t totalPages) {
+    uint16_t page = currentPage + 1;  // Display 1-indexed
+
+    auto drawPicker = [&]() {
+        Display::clearBuffer();
+        char buf[32];
+        const char* title = "Go to Page";
+        int16_t tw = getStringWidth(title, font_medium);
+        UI::drawString((EPD_WIDTH - tw) / 2, 40, title, font_medium);
+        snprintf(buf, sizeof(buf), "%d", page);
+        int16_t nw = getStringWidth(buf, font_large);
+        UI::drawString((EPD_WIDTH - nw) / 2, 90, buf, font_large);
+        snprintf(buf, sizeof(buf), "of %d", totalPages);
+        int16_t ow = getStringWidth(buf, font_regular);
+        UI::drawString((EPD_WIDTH - ow) / 2, 130, buf, font_regular);
+        UI::drawString((EPD_WIDTH - nw) / 2 - 20, 90, "<", font_large);
+        UI::drawString((EPD_WIDTH + nw) / 2 + 8, 90, ">", font_large);
+    };
+
+    drawPicker();
+    Display::update(true);
+
+    while (true) {
+        // Check raw GPIO before event poll for hold-to-repeat
+        if (Input::isHeld(Event::MENU)) {
+            if (page < totalPages) page++;
+            drawPicker();
+            Display::update(false, true);
+            delay(100);
+            continue;
+        }
+        if (Input::isHeld(Event::EXIT)) {
+            if (page > 1) page--;
+            drawPicker();
+            Display::update(false, true);
+            delay(100);
+            continue;
+        }
+
+        Event e = Input::poll();
+        if (e == Event::NONE) { Input::lightSleep(); continue; }
+
+        switch (e) {
+            case Event::SCROLL_UP:
+                if (page > 1) page--;
+                drawPicker();
+                Display::update(false, true);
+                break;
+            case Event::SCROLL_DOWN:
+                if (page < totalPages) page++;
+                drawPicker();
+                Display::update(false, true);
+                break;
+            case Event::SELECT:
+                return page - 1;  // Convert back to 0-indexed
+            default: break;
+        }
+    }
+}
+
 namespace MenuReading {
 
-ReadingMenuResult run(const char* bookFilename, uint16_t currentPage) {
+ReadingMenuResult run(const char* bookFilename, uint16_t currentPage,
+                      uint16_t totalPages) {
     MenuItem items[] = {
+        {"Go to Page", true},
         {"Add Bookmark", true},
         {"View Bookmarks", true},
         {"Mark as Read", true},
         {"Back to Library", true},
     };
-    int itemCount = 4;
+    int itemCount = 5;
     int8_t selected = 0;
 
-    // Draw as a centered overlay (full-width single pane for reading context)
     auto drawOverlay = [&]() {
         Display::clearBuffer();
 
         // Title
         UI::drawString(MARGIN_X, MARGIN_Y, bookFilename, font_medium, COL_BLACK);
 
+        // Page info
+        char pageInfo[32];
+        snprintf(pageInfo, sizeof(pageInfo), "Page %d of %d", currentPage + 1, totalPages);
+        UI::drawString(MARGIN_X, MARGIN_Y + font_medium.lineHeight + 4,
+                       pageInfo, font_regular, COL_BLACK);
+
         // Menu items with > indicator
-        int16_t y = MARGIN_Y + font_medium.lineHeight + LINE_SPACING + 10;
+        int16_t y = MARGIN_Y + font_medium.lineHeight + font_regular.lineHeight + LINE_SPACING + 14;
         int16_t lineH = font_regular.lineHeight + LINE_SPACING + 4;
 
         for (int i = 0; i < itemCount; i++) {
@@ -45,7 +116,7 @@ ReadingMenuResult run(const char* bookFilename, uint16_t currentPage) {
 
     while (true) {
         Event e = Input::poll();
-        if (e == Event::NONE) { delay(10); continue; }
+        if (e == Event::NONE) { Input::lightSleep(); continue; }
 
         switch (e) {
             case Event::SCROLL_UP:
@@ -67,16 +138,21 @@ ReadingMenuResult run(const char* bookFilename, uint16_t currentPage) {
             case Event::SELECT:
                 switch (selected) {
                     case 0: {
-                        // Add Bookmark — save with auto-name
+                        // Go to Page
+                        s_chosenPage = runPagePicker(currentPage, totalPages);
+                        return ReadingMenuResult::GO_TO_PAGE;
+                    }
+                    case 1: {
+                        // Add Bookmark
                         Bookmarks::save(bookFilename, currentPage);
                         UI::drawCenteredMessage("Bookmark saved!", font_regular);
                         Display::update(true);
                         delay(800);
                         return ReadingMenuResult::RESUME;
                     }
-                    case 1: return ReadingMenuResult::VIEW_BOOKMARKS;
-                    case 2: return ReadingMenuResult::MARK_AS_READ;
-                    case 3: return ReadingMenuResult::BACK_TO_LIBRARY;
+                    case 2: return ReadingMenuResult::VIEW_BOOKMARKS;
+                    case 3: return ReadingMenuResult::MARK_AS_READ;
+                    case 4: return ReadingMenuResult::BACK_TO_LIBRARY;
                 }
                 break;
 
@@ -86,6 +162,10 @@ ReadingMenuResult run(const char* bookFilename, uint16_t currentPage) {
             default: break;
         }
     }
+}
+
+uint16_t getChosenPage() {
+    return s_chosenPage;
 }
 
 }  // namespace MenuReading

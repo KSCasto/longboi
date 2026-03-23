@@ -6,86 +6,100 @@
 #include "../storage/sd_manager.h"
 #include "../bookmarks/bookmarks.h"
 #include "../fonts/fonts.h"
+#include <SD.h>
+#include <algorithm>
+
+enum class SortMode : uint8_t { NAME, RECENT, PROGRESS };
+
+static const char* sortModeLabel(SortMode m) {
+    switch (m) {
+        case SortMode::NAME:     return "Sort: A-Z";
+        case SortMode::RECENT:   return "Sort: Recent";
+        case SortMode::PROGRESS: return "Sort: Progress";
+    }
+    return "Sort: A-Z";
+}
+
+// Calculate reading progress (0-100) for a book entry
+static uint8_t calcProgress(const BookEntry& e) {
+    if (e.status == BookStatus::READ_DONE) return 100;
+    if (e.byteOffset == 0) return 0;
+    String path = String(PATH_BOOKS) + "/" + e.filename;
+    size_t fSize = SDManager::fileSize(path.c_str());
+    if (fSize == 0) return 0;
+    return (uint8_t)((e.byteOffset * 100) / fSize);
+}
 
 namespace MenuLibrary {
 
-// Filter modes
-enum class Filter : uint8_t { ALL, UNREAD, READING, READ_DONE };
-
-static const char* filterNames[] = {"All", "Unread", "Reading", "Read"};
-
-static Filter currentFilter = Filter::ALL;
-
-static bool matchesFilter(const BookEntry& e, Filter f) {
-    switch (f) {
-        case Filter::UNREAD:    return e.status == BookStatus::UNREAD;
-        case Filter::READING:   return e.status == BookStatus::READING;
-        case Filter::READ_DONE: return e.status == BookStatus::READ_DONE;
-        default:                return true;
-    }
-}
-
-// Build the preview content for a book entry
-static void drawBookPreview(const BookEntry& entry) {
-    char statusLine[32], pageLine[48], bmLine[32];
-    snprintf(statusLine, sizeof(statusLine), "Status: %s",
-             Library::statusToString(entry.status));
-    snprintf(pageLine, sizeof(pageLine), "Page: %d", entry.page + 1);
-
-    uint16_t bmCount = Bookmarks::count(entry.filename);
-    snprintf(bmLine, sizeof(bmLine), "%d bookmarks", bmCount);
-
-    PreviewLine lines[] = {
-        {entry.filename.c_str(), &font_medium},
-        {statusLine, nullptr},
-        {pageLine, nullptr},
-        {bmLine, nullptr},
-    };
-    UI::drawRightPreview(lines, 4);
-}
-
 ViewResult run() {
-    // Get filtered book list
-    const auto& allEntries = Library::getAll();
+    auto& allEntries = Library::getAllMut();
 
-    // Build displayable list based on filter
-    auto rebuildList = [&](std::vector<const BookEntry*>& filtered) {
-        filtered.clear();
-        for (const auto& e : allEntries) {
-            if (matchesFilter(e, currentFilter)) {
-                filtered.push_back(&e);
-            }
-        }
-    };
-
-    std::vector<const BookEntry*> filtered;
-    rebuildList(filtered);
-
-    if (filtered.empty()) {
+    if (allEntries.empty()) {
         UI::drawCenteredMessage("No books found", font_regular);
         Display::update(true);
-        // Wait for any button to go back
         while (true) {
             Event e = Input::poll();
             if (e != Event::NONE) return ViewResult::MAIN_MENU;
-            delay(10);
+            Input::lightSleep();
         }
     }
 
-    // Build menu items from filtered list
-    const int MAX_DISPLAY = 32;
+    // Storage info for title
+    char libraryTitle[48];
+    auto buildTitle = [&]() {
+        uint64_t total = SD.totalBytes();
+        uint64_t used = SD.usedBytes();
+        uint8_t pct = (total > 0) ? (uint8_t)((used * 100) / total) : 0;
+        snprintf(libraryTitle, sizeof(libraryTitle), "Library %d%% %dMB/%dMB",
+                 pct, (int)(used / (1024*1024)), (int)(total / (1024*1024)));
+    };
+    buildTitle();
+
+    SortMode sortMode = SortMode::RECENT;
+
+    auto sortEntries = [&]() {
+        switch (sortMode) {
+            case SortMode::NAME:
+                std::sort(allEntries.begin(), allEntries.end(),
+                    [](const BookEntry& a, const BookEntry& b) {
+                        return a.filename < b.filename;
+                    });
+                break;
+            case SortMode::RECENT:
+                std::sort(allEntries.begin(), allEntries.end(),
+                    [](const BookEntry& a, const BookEntry& b) {
+                        return a.updated > b.updated;
+                    });
+                break;
+            case SortMode::PROGRESS:
+                std::sort(allEntries.begin(), allEntries.end(),
+                    [](const BookEntry& a, const BookEntry& b) {
+                        return calcProgress(a) > calcProgress(b);
+                    });
+                break;
+        }
+    };
+    sortEntries();
+
+    // Build left panel: first item is sort selector, rest are books
+    const int MAX_DISPLAY = 33;
     MenuItem leftItems[MAX_DISPLAY];
     char labels[MAX_DISPLAY][48];
-    int leftCount = min((int)filtered.size(), MAX_DISPLAY);
+    int totalItems = 0;
 
     auto rebuildLabels = [&]() {
-        leftCount = min((int)filtered.size(), MAX_DISPLAY);
-        for (int i = 0; i < leftCount; i++) {
-            snprintf(labels[i], sizeof(labels[i]), "%s [%s]",
-                     filtered[i]->filename.c_str(),
-                     Library::statusToString(filtered[i]->status));
-            leftItems[i] = {labels[i], true};
+        int bookCount = min((int)allEntries.size(), MAX_DISPLAY - 1);
+        snprintf(labels[0], sizeof(labels[0]), "%s", sortModeLabel(sortMode));
+        leftItems[0] = {labels[0], true};
+
+        for (int i = 0; i < bookCount; i++) {
+            uint8_t pct = calcProgress(allEntries[i]);
+            snprintf(labels[i + 1], sizeof(labels[i + 1]), "%3d%% %.20s",
+                     pct, allEntries[i].filename.c_str());
+            leftItems[i + 1] = {labels[i + 1], true};
         }
+        totalItems = bookCount + 1;
     };
     rebuildLabels();
 
@@ -93,84 +107,103 @@ ViewResult run() {
     bool rightActive = false;
     int8_t rightSelected = 0;
 
-    // Right submenu for a selected book
     MenuItem bookSubItems[] = {
         {"Open", true},
-        {"Mark Unread", true},
+        {"Cycle Status", true},
         {"Delete", true},
+        {"Main Menu", true},
     };
-    int bookSubCount = 3;
+    int bookSubCount = 4;
+
+    // Build the right-panel preview for a book
+    auto drawBookPreview = [&](int bookIdx) {
+        const BookEntry& entry = allEntries[bookIdx];
+        char statusLine[32], pageLine[48], bmLine[32], sizeLine[32];
+        snprintf(statusLine, sizeof(statusLine), "Status: %s",
+                 Library::statusToString(entry.status));
+        snprintf(pageLine, sizeof(pageLine), "Page: %d", entry.page + 1);
+        uint16_t bmCount = Bookmarks::count(entry.filename);
+        snprintf(bmLine, sizeof(bmLine), "%d bookmarks", bmCount);
+        String path = String(PATH_BOOKS) + "/" + entry.filename;
+        size_t fSize = SDManager::fileSize(path.c_str());
+        snprintf(sizeLine, sizeof(sizeLine), "Size: %dKB", (int)(fSize / 1024));
+
+        PreviewLine lines[] = {
+            {entry.filename.c_str(), &font_medium},
+            {statusLine, nullptr},
+            {pageLine, nullptr},
+            {bmLine, nullptr},
+            {sizeLine, nullptr},
+        };
+        UI::drawRightPreview(lines, 5);
+    };
 
     // Initial draw
     Display::clearBuffer();
-    UI::drawLeftPanel(leftItems, leftCount, selected, -1, true);
+    UI::drawLeftPanel(leftItems, totalItems, selected, -1, true);
     UI::drawDivider();
-    if (leftCount > 0) drawBookPreview(*filtered[selected]);
-    Display::update();
+    if (totalItems > 1) drawBookPreview(0);
+    Display::update(true);
 
     while (true) {
         Event e = Input::poll();
-        if (e == Event::NONE) { delay(10); continue; }
+        if (e == Event::NONE) { Input::lightSleep(); continue; }
 
         if (!rightActive) {
             switch (e) {
                 case Event::SCROLL_UP:
                     if (selected > 0) {
                         selected--;
-                        UI::drawLeftPanel(leftItems, leftCount, selected, -1, true);
-                        drawBookPreview(*filtered[selected]);
+                        UI::drawLeftPanel(leftItems, totalItems, selected, -1, true);
+                        if (selected > 0) drawBookPreview(selected - 1);
+                        else UI::clearRightPanel();
                         UI::drawDivider();
-                        Display::update();
+                        Display::update(false, true);
                     }
                     break;
 
                 case Event::SCROLL_DOWN:
-                    if (selected < leftCount - 1) {
+                    if (selected < totalItems - 1) {
                         selected++;
-                        UI::drawLeftPanel(leftItems, leftCount, selected, -1, true);
-                        drawBookPreview(*filtered[selected]);
+                        UI::drawLeftPanel(leftItems, totalItems, selected, -1, true);
+                        drawBookPreview(selected - 1);
                         UI::drawDivider();
-                        Display::update();
+                        Display::update(false, true);
                     }
                     break;
 
                 case Event::SELECT:
-                    // Activate right panel submenu
-                    rightActive = true;
-                    rightSelected = 0;
-                    UI::drawLeftPanel(leftItems, leftCount, -1, selected, false);
-                    UI::drawRightMenu(bookSubItems, bookSubCount, rightSelected);
-                    UI::drawDivider();
-                    Display::update(true);
+                    if (selected == 0) {
+                        // Cycle sort mode
+                        switch (sortMode) {
+                            case SortMode::NAME:     sortMode = SortMode::RECENT;   break;
+                            case SortMode::RECENT:   sortMode = SortMode::PROGRESS; break;
+                            case SortMode::PROGRESS: sortMode = SortMode::NAME;     break;
+                        }
+                        sortEntries();
+                        rebuildLabels();
+                        Display::clearBuffer();
+                        UI::drawLeftPanel(leftItems, totalItems, selected, -1, true);
+                        UI::drawDivider();
+                        Display::update(true);
+                    } else {
+                        // Activate right panel submenu
+                        rightActive = true;
+                        rightSelected = 0;
+                        UI::drawLeftPanel(leftItems, totalItems, -1, selected, false);
+                        UI::drawRightMenu(bookSubItems, bookSubCount, rightSelected);
+                        UI::drawDivider();
+                        Display::update(true);
+                    }
                     break;
 
                 case Event::EXIT:
                     return ViewResult::MAIN_MENU;
 
-                case Event::MENU: {
-                    // Cycle filter
-                    currentFilter = (Filter)(((int)currentFilter + 1) % 4);
-                    rebuildList(filtered);
-                    rebuildLabels();
-                    selected = 0;
-                    Display::clearBuffer();
-                    UI::drawLeftPanel(leftItems, leftCount, selected, -1, true);
-                    UI::drawDivider();
-                    if (leftCount > 0) drawBookPreview(*filtered[selected]);
-
-                    // Show current filter at top of right panel
-                    char filterMsg[32];
-                    snprintf(filterMsg, sizeof(filterMsg), "Filter: %s",
-                             filterNames[(int)currentFilter]);
-                    // Briefly show filter name then redraw
-                    Display::update(true);
-                    break;
-                }
-
                 default: break;
             }
         } else {
-            // Right panel active — book action submenu
+            int bookIdx = selected - 1;
             switch (e) {
                 case Event::SCROLL_UP:
                     if (rightSelected > 0) {
@@ -189,39 +222,36 @@ ViewResult run() {
                     break;
 
                 case Event::SELECT: {
-                    const BookEntry* book = filtered[selected];
+                    const BookEntry& book = allEntries[bookIdx];
                     switch (rightSelected) {
                         case 0:
                             // Open book
-                            g_bookToOpen = book->filename;
-                            g_pageToOpen = book->page;
+                            g_bookToOpen = book.filename;
+                            g_pageToOpen = book.page;
                             return ViewResult::OPEN_BOOK;
 
                         case 1: {
-                            // Cycle status: unread → reading → read → unread
+                            // Cycle status
                             BookStatus next;
-                            switch (book->status) {
+                            switch (book.status) {
                                 case BookStatus::UNREAD:    next = BookStatus::READING; break;
                                 case BookStatus::READING:   next = BookStatus::READ_DONE; break;
                                 case BookStatus::READ_DONE: next = BookStatus::UNREAD; break;
                             }
-                            Library::setEntry(book->filename, next, book->page);
-
-                            // Rebuild and redraw
-                            rebuildList(filtered);
-                            rebuildLabels();
+                            Library::setEntry(book.filename, next, book.page);
                             rightActive = false;
-                            if (selected >= leftCount) selected = max(0, leftCount - 1);
+                            rebuildLabels();
+                            if (selected >= totalItems) selected = max(0, totalItems - 1);
                             Display::clearBuffer();
-                            UI::drawLeftPanel(leftItems, leftCount, selected, -1, true);
+                            UI::drawLeftPanel(leftItems, totalItems, selected, -1, true);
                             UI::drawDivider();
-                            if (leftCount > 0) drawBookPreview(*filtered[selected]);
+                            if (selected > 0) drawBookPreview(selected - 1);
                             Display::update(true);
                             break;
                         }
 
                         case 2: {
-                            // Delete — show confirmation
+                            // Delete — confirm
                             Display::clearBuffer();
                             UI::drawConfirmDialog("Delete this book?", true);
                             Display::update(true);
@@ -229,7 +259,7 @@ ViewResult run() {
                             bool yesSelected = true;
                             while (true) {
                                 Event ce = Input::poll();
-                                if (ce == Event::NONE) { delay(10); continue; }
+                                if (ce == Event::NONE) { Input::lightSleep(); continue; }
 
                                 if (ce == Event::SCROLL_UP || ce == Event::SCROLL_DOWN) {
                                     yesSelected = !yesSelected;
@@ -238,10 +268,10 @@ ViewResult run() {
                                     Display::update(true);
                                 } else if (ce == Event::SELECT) {
                                     if (yesSelected) {
-                                        String path = String(PATH_BOOKS) + "/" + book->filename;
+                                        String path = String(PATH_BOOKS) + "/" + book.filename;
                                         SDManager::deleteFile(path.c_str());
-                                        Bookmarks::removeAll(book->filename);
-                                        Library::removeEntry(book->filename);
+                                        Bookmarks::removeAll(book.filename);
+                                        Library::removeEntry(book.filename);
                                     }
                                     break;
                                 } else if (ce == Event::EXIT) {
@@ -249,30 +279,32 @@ ViewResult run() {
                                 }
                             }
 
-                            // Rebuild and redraw
-                            rebuildList(filtered);
-                            rebuildLabels();
                             rightActive = false;
-                            if (selected >= leftCount) selected = max(0, leftCount - 1);
+                            buildTitle();
+                            rebuildLabels();
+                            if (selected >= totalItems) selected = max(0, totalItems - 1);
                             Display::clearBuffer();
-                            if (leftCount > 0) {
-                                UI::drawLeftPanel(leftItems, leftCount, selected, -1, true);
+                            if (totalItems > 1) {
+                                UI::drawLeftPanel(leftItems, totalItems, selected, -1, true);
                                 UI::drawDivider();
-                                drawBookPreview(*filtered[selected]);
+                                if (selected > 0) drawBookPreview(selected - 1);
                             } else {
                                 UI::drawCenteredMessage("No books", font_regular);
                             }
                             Display::update(true);
                             break;
                         }
+
+                        case 3:
+                            return ViewResult::MAIN_MENU;
                     }
                     break;
                 }
 
                 case Event::EXIT:
                     rightActive = false;
-                    UI::drawLeftPanel(leftItems, leftCount, selected, -1, true);
-                    drawBookPreview(*filtered[selected]);
+                    UI::drawLeftPanel(leftItems, totalItems, selected, -1, true);
+                    if (selected > 0) drawBookPreview(selected - 1);
                     UI::drawDivider();
                     Display::update(true);
                     break;

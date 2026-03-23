@@ -18,7 +18,8 @@ struct BookEntry {
     String filename;
     BookStatus status;
     uint16_t page;
-    uint32_t updated;  // Unix timestamp
+    uint32_t byteOffset;  // Byte offset in file for reading progress
+    uint32_t updated;      // Unix timestamp
 };
 
 namespace Library {
@@ -40,6 +41,9 @@ void removeEntry(const String& filename);
 
 // Get all entries
 const std::vector<BookEntry>& getAll();
+
+// Get mutable reference (for sorting in library view)
+std::vector<BookEntry>& getAllMut();
 
 // Get the most recently updated book with status READING (for "Resume").
 // Returns nullptr if no reading book exists.

@@ -148,6 +148,7 @@ void start() {
     if (running) return;
 
     // Configure AP
+    setCpuFrequencyMhz(240);  // Max CPU for fast uploads
     WiFi.mode(WIFI_AP);
     WiFi.softAP(AP_SSID, strlen(AP_PASSWORD) > 0 ? AP_PASSWORD : nullptr);
     delay(100);
@@ -242,6 +243,7 @@ void stop() {
 
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_OFF);
+    setCpuFrequencyMhz(40);  // Back to low power
     running = false;
     Serial.println("[WiFi] Server stopped");
 }

@@ -130,11 +130,12 @@ ViewResult run() {
     UI::drawLeftPanel(items, itemCount, selected, -1, true);
     UI::drawDivider();
     drawPreviewForItem(selected, hasResume, resumeBook);
+    UI::drawBatteryTopRight();
     Display::update(true);
 
     while (true) {
         Event e = Input::poll();
-        if (e == Event::NONE) { delay(10); continue; }
+        if (e == Event::NONE) { Input::lightSleep(); continue; }
 
         if (!rightActive) {
             // Left panel is active
@@ -145,6 +146,7 @@ ViewResult run() {
                         drawPreviewForItem(selected, hasResume, resumeBook);
                         UI::drawLeftPanel(items, itemCount, selected, -1, true);
                         UI::drawDivider();
+                        UI::drawBatteryTopRight();
                         Display::update(false,true);
                     }
                     break;
@@ -155,6 +157,7 @@ ViewResult run() {
                         UI::drawLeftPanel(items, itemCount, selected, -1, true);
                         drawPreviewForItem(selected, hasResume, resumeBook);
                         UI::drawDivider();
+                        UI::drawBatteryTopRight();
                         Display::update(false,true);
                     }
                     break;

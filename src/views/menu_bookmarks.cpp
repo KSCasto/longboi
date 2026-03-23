@@ -18,7 +18,7 @@ ViewResult run() {
         while (true) {
             Event e = Input::poll();
             if (e != Event::NONE) return ViewResult::MAIN_MENU;
-            delay(10);
+            Input::lightSleep();
         }
     }
 
@@ -73,7 +73,7 @@ ViewResult run() {
 
     while (true) {
         Event e = Input::poll();
-        if (e == Event::NONE) { delay(10); continue; }
+        if (e == Event::NONE) { Input::lightSleep(); continue; }
 
         if (!rightActive) {
             switch (e) {

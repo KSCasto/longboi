@@ -15,6 +15,7 @@
 
 // Display SPI pins are defined in epd/spi.h (MOSI=11, SCK=12, CS=45, DC=46, RES=47, BUSY=48)
 #define EPD_PWR_PIN     7      // HIGH to enable display power
+// #define LED_PWR_PIN  ??     // TODO: find LED pin for 5.79" board (not yet identified)
 
 // Two-pane layout: each panel is half the visible width
 #define PANEL_LEFT_W    396

@@ -64,6 +64,11 @@ void drawProgressBar(uint16_t currentPage, uint16_t totalPages);
 // Draw a horizontal rule (full width or within a panel)
 void drawHorizontalRule(int16_t x, int16_t y, int16_t width);
 
+// --- Battery indicator -------------------------------------------------------
+
+// Draw battery voltage in the upper-right corner (for main menu)
+void drawBatteryTopRight();
+
 // --- Utility -----------------------------------------------------------------
 
 // Clear only the left panel region in the buffer

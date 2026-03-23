@@ -34,6 +34,7 @@ bool load() {
         else                           e.status = BookStatus::UNREAD;
 
         e.page = val["page"] | 0;
+        e.byteOffset = val["byteOffset"] | 0;
         e.updated = val["updated"] | 0;
 
         entries.push_back(e);
@@ -55,6 +56,7 @@ bool save() {
             default:                    obj["status"] = "unread"; break;
         }
         obj["page"] = e.page;
+        obj["byteOffset"] = e.byteOffset;
         obj["updated"] = e.updated;
     }
 
@@ -104,6 +106,10 @@ void removeEntry(const String& filename) {
 }
 
 const std::vector<BookEntry>& getAll() {
+    return entries;
+}
+
+std::vector<BookEntry>& getAllMut() {
     return entries;
 }
 

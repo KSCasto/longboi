@@ -33,4 +33,8 @@ void flush();
 // Check if a specific button is currently held down (for long-press detection)
 bool isHeld(Event button);
 
+// Enter light sleep with GPIO wakeup (any button) + 10ms timer fallback.
+// Saves ~35mA vs active polling with delay().
+void lightSleep();
+
 }  // namespace Input

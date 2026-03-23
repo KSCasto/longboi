@@ -40,7 +40,7 @@ CompletionResult run(const char* bookFilename) {
 
     while (true) {
         Event e = Input::poll();
-        if (e == Event::NONE) { delay(10); continue; }
+        if (e == Event::NONE) { Input::lightSleep(); continue; }
 
         switch (e) {
             case Event::SCROLL_UP:
