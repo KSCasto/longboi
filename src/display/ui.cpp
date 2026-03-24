@@ -302,7 +302,7 @@ void clearLeftPanel() {
 }
 
 void clearRightPanel() {
-    Display::fillRect(PANEL_DIVIDER_X, 0, PANEL_RIGHT_W, EPD_HEIGHT, COL_WHITE);
+    Display::fillRect(PANEL_DIVIDER_X + 1, 0, PANEL_RIGHT_W - 1, EPD_HEIGHT, COL_WHITE);
 }
 
 void clearAll() {
