@@ -66,8 +66,11 @@ void drawHorizontalRule(int16_t x, int16_t y, int16_t width);
 
 // --- Battery indicator -------------------------------------------------------
 
-// Draw battery voltage in the upper-right corner (for main menu)
+// Draw battery voltage in the upper-right corner
 void drawBatteryTopRight();
+
+// Draw battery voltage in the lower-right corner (for main menu)
+void drawBatteryBottomRight();
 
 // --- Utility -----------------------------------------------------------------
 

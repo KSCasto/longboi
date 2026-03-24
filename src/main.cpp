@@ -54,7 +54,7 @@ static bool bootInit() {
 
     // Initialize display
     Display::init();
-    UI::drawCenteredMessage("KiraReader", font_large);
+    UI::drawCenteredMessage("THE LOOK", font_splash);
     Display::update(true);
 
     // Initialize input

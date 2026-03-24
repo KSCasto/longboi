@@ -20,12 +20,17 @@ struct FontDef {
     uint8_t charWidth;   // Pixel width per character = size / 2
     uint8_t lineHeight;  // Pixel height per character = size
     uint8_t baseline;    // Approximate baseline offset
+    bool bold;           // Use bold glyph variant
 };
 
-extern const FontDef font_large;    // size 24 — H1 headers
-extern const FontDef font_medium;   // size 16 — H2 headers
-extern const FontDef font_regular;  // size 12 — body text
-extern const FontDef font_bold;     // size 12 — bold (same metrics, semantic marker only)
+extern FontDef font_large;           // H1 headers (scales with font setting)
+extern FontDef font_medium;          // H2 headers (scales with font setting)
+extern FontDef font_regular;         // body text (scales with font setting)
+extern FontDef font_bold;            // bold (tracks font_regular)
+extern const FontDef font_splash;    // size 25 — bold-oblique 24px (boot splash, fixed)
+
+// Update all font globals based on the body font size and bold flag
+void updateFontScale(uint8_t bodySize, bool bold = false);
 
 uint16_t getStringWidth(const char* str, const FontDef& font);
 uint8_t  getCharWidth(char c, const FontDef& font);

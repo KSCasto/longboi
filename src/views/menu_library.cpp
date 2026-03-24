@@ -301,7 +301,7 @@ ViewResult run() {
                     UI::drawLeftPanel(leftItems, totalItems, selected, -1, true);
                     if (selected > 0) drawBookPreview(selected - 1);
                     UI::drawDivider();
-                    Display::update(true);
+                    Display::update();
                     break;
 
                 default: break;

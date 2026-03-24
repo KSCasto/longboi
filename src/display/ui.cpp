@@ -3,6 +3,14 @@
 #include "../epd/EPD.h"
 #include "../battery/battery.h"
 #include "../fonts/DejaVuMono12.h"
+#include "../fonts/DejaVuMono12Bold.h"
+#include "../fonts/DejaVuMono16.h"
+#include "../fonts/DejaVuMono16Bold.h"
+#include "../fonts/DejaVuMono18.h"
+#include "../fonts/DejaVuMono18Bold.h"
+#include "../fonts/DejaVuMono24.h"
+#include "../fonts/DejaVuMono24Bold.h"
+#include "../fonts/DejaVuMono24BoldOblique.h"
 #include <pgmspace.h>
 
 namespace UI {
@@ -12,9 +20,9 @@ namespace UI {
 // custom PROGMEM bitmap for size-12 (DejaVu Sans Mono 8x12)
 // =============================================================================
 
-static uint8_t drawCharMono(int16_t x, int16_t y, char c, uint8_t color) {
+static uint8_t drawCharMono12(int16_t x, int16_t y, char c, uint8_t color, bool bold) {
     if (c < 32 || c > 126) c = 32;
-    const uint8_t* glyph = dejavu_mono_12[c - 32];
+    const uint8_t* glyph = bold ? dejavu_mono_12_bold[c - 32] : dejavu_mono_12[c - 32];
     uint8_t col_color = (color == COL_BLACK) ? BLACK : WHITE;
     for (int row = 0; row < 12; row++) {
         uint8_t b = pgm_read_byte(&glyph[row]);
@@ -26,9 +34,69 @@ static uint8_t drawCharMono(int16_t x, int16_t y, char c, uint8_t color) {
     return 8;
 }
 
+static uint8_t drawCharMono16(int16_t x, int16_t y, char c, uint8_t color, bool bold) {
+    if (c < 32 || c > 126) c = 32;
+    const uint8_t* glyph = bold ? dejavu_mono_16_bold[c - 32] : dejavu_mono_16[c - 32];
+    uint8_t col_color = (color == COL_BLACK) ? BLACK : WHITE;
+    for (int row = 0; row < 16; row++) {
+        uint8_t b = pgm_read_byte(&glyph[row]);
+        for (int col = 0; col < 8; col++) {
+            if (b & (0x80 >> col))
+                Paint_SetPixel(x + col, y + row, col_color);
+        }
+    }
+    return 8;
+}
+
+static uint8_t drawCharMono18(int16_t x, int16_t y, char c, uint8_t color, bool bold) {
+    if (c < 32 || c > 126) c = 32;
+    const uint16_t* glyph = bold ? dejavu_mono_18_bold[c - 32] : dejavu_mono_18[c - 32];
+    uint8_t col_color = (color == COL_BLACK) ? BLACK : WHITE;
+    for (int row = 0; row < 18; row++) {
+        uint16_t b = pgm_read_word(&glyph[row]);
+        for (int col = 0; col < 10; col++) {
+            if (b & (0x8000 >> col))
+                Paint_SetPixel(x + col, y + row, col_color);
+        }
+    }
+    return 10;
+}
+
+static uint8_t drawCharMono24(int16_t x, int16_t y, char c, uint8_t color, bool bold) {
+    if (c < 32 || c > 126) c = 32;
+    const uint16_t* glyph = bold ? dejavu_mono_24_bold[c - 32] : dejavu_mono_24[c - 32];
+    uint8_t col_color = (color == COL_BLACK) ? BLACK : WHITE;
+    for (int row = 0; row < 24; row++) {
+        uint16_t b = pgm_read_word(&glyph[row]);
+        for (int col = 0; col < 14; col++) {
+            if (b & (0x8000 >> col))
+                Paint_SetPixel(x + col, y + row, col_color);
+        }
+    }
+    return 14;
+}
+
+static uint8_t drawCharMono24BI(int16_t x, int16_t y, char c, uint8_t color) {
+    if (c < 32 || c > 126) c = 32;
+    const uint16_t* glyph = dejavu_mono_24bi[c - 32];
+    uint8_t col_color = (color == COL_BLACK) ? BLACK : WHITE;
+    for (int row = 0; row < 24; row++) {
+        uint16_t b = pgm_read_word(&glyph[row]);
+        for (int col = 0; col < 15; col++) {
+            if (b & (0x8000 >> col))
+                Paint_SetPixel(x + col, y + row, col_color);
+        }
+    }
+    return 15;
+}
+
 uint8_t drawChar(int16_t x, int16_t y, char c, const FontDef& font, uint8_t color) {
     if (x < 0 || y < 0) return font.charWidth;
-    if (font.size == 12) { drawCharMono(x, y, c, color); return font.charWidth; }
+    if (font.size == 12) { drawCharMono12(x, y, c, color, font.bold); return font.charWidth; }
+    if (font.size == 16) { drawCharMono16(x, y, c, color, font.bold); return font.charWidth; }
+    if (font.size == 18) { drawCharMono18(x, y, c, color, font.bold); return font.charWidth; }
+    if (font.size == 24) { drawCharMono24(x, y, c, color, font.bold); return font.charWidth; }
+    if (font.size == 25) { drawCharMono24BI(x, y, c, color); return font.charWidth; }
     EPD_ShowChar((uint16_t)x, (uint16_t)y, (uint16_t)c, font.size, color);
     return font.charWidth;
 }
@@ -171,6 +239,8 @@ void drawDivider() {
 // =============================================================================
 
 void drawProgressBar(uint16_t currentPage, uint16_t totalPages) {
+    // Use a fixed small font for the status bar so it never clips off screen
+    static const FontDef barFont = { 12, 7, 12, 10, false };
     int16_t barY = EPD_HEIGHT - PROGRESS_BAR_H - 2;
 
     // Clear the progress bar region
@@ -178,13 +248,13 @@ void drawProgressBar(uint16_t currentPage, uint16_t totalPages) {
 
     // Battery voltage on the left
     const char* batStr = Battery::voltageStr();
-    int16_t batW = getStringWidth(batStr, font_regular);
-    drawString(MARGIN_X, barY, batStr, font_regular, COL_BLACK);
+    int16_t batW = getStringWidth(batStr, barFont);
+    drawString(MARGIN_X, barY, batStr, barFont, COL_BLACK);
 
     // Compute page text width so bar fits exactly between battery and page text
     char pageStr[16];
     snprintf(pageStr, sizeof(pageStr), "%d/%d", currentPage, totalPages);
-    int16_t pageTextW = getStringWidth(pageStr, font_regular);
+    int16_t pageTextW = getStringWidth(pageStr, barFont);
 
     int16_t barX = MARGIN_X + batW + 3;
     int16_t barW = EPD_WIDTH - barX - 3 - pageTextW;
@@ -202,13 +272,20 @@ void drawProgressBar(uint16_t currentPage, uint16_t totalPages) {
     }
 
     // Page number text flush to right edge
-    drawString(EPD_WIDTH - pageTextW, barY, pageStr, font_regular, COL_BLACK);
+    drawString(EPD_WIDTH - pageTextW, barY, pageStr, barFont, COL_BLACK);
 }
 
 void drawBatteryTopRight() {
     const char* batStr = Battery::voltageStr();
     int16_t w = getStringWidth(batStr, font_regular);
     drawString(EPD_WIDTH - MARGIN_X - w, MARGIN_Y, batStr, font_regular, COL_BLACK);
+}
+
+void drawBatteryBottomRight() {
+    const char* batStr = Battery::voltageStr();
+    int16_t w = getStringWidth(batStr, font_regular);
+    int16_t y = EPD_HEIGHT - MARGIN_Y - font_regular.lineHeight;
+    drawString(EPD_WIDTH - MARGIN_X - w, y, batStr, font_regular, COL_BLACK);
 }
 
 void drawHorizontalRule(int16_t x, int16_t y, int16_t width) {

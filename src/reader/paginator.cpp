@@ -151,24 +151,18 @@ const FontDef& Paginator::fontForLine(const char* line) const {
     // Check Markdown prefixes
     if (strncmp(line, "## ", 3) == 0) return font_medium;
     if (strncmp(line, "# ", 2) == 0)  return font_large;
-    // Horizontal rule
-    if (strcmp(line, "---") == 0 || strcmp(line, "***") == 0 || strcmp(line, "___") == 0) {
-        return Settings::bodyFont();
-    }
-    return Settings::bodyFont();
+    return font_regular;
 }
 
 int16_t Paginator::lineHeight(const char* line, int16_t maxWidth) const {
-    const FontDef& bodyFont = Settings::bodyFont();
-
     // Empty line = one regular line height (paragraph spacing)
     if (line[0] == '\0') {
-        return bodyFont.lineHeight + LINE_SPACING;
+        return font_regular.lineHeight + LINE_SPACING;
     }
 
     // Horizontal rule
     if (strcmp(line, "---") == 0 || strcmp(line, "***") == 0 || strcmp(line, "___") == 0) {
-        return bodyFont.lineHeight;  // Fixed height for HR
+        return font_regular.lineHeight;  // Fixed height for HR
     }
 
     const FontDef& font = fontForLine(line);

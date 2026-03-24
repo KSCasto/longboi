@@ -46,6 +46,7 @@ namespace MenuSettings {
 
 ViewResult run() {
     char fontLabel[24];
+    char boldLabel[24];
     char spacingLabel[24];
     char refreshLabel[24];
     char scrollLabel[24];
@@ -53,8 +54,13 @@ ViewResult run() {
     char sleepLabel[24];
 
     auto buildLabels = [&]() {
-        snprintf(fontLabel, sizeof(fontLabel), "Font: %s",
-                 Settings::fontSize() == 16 ? "Large" : "Small");
+        const char* fontName = "Small";
+        if (Settings::fontSize() == 16) fontName = "Medium";
+        else if (Settings::fontSize() == 18) fontName = "Large";
+        snprintf(fontLabel, sizeof(fontLabel), "Font: %s", fontName);
+
+        snprintf(boldLabel, sizeof(boldLabel), "Bold: %s",
+                 Settings::boldEnabled() ? "On" : "Off");
 
         const char* spacingNames[] = {"Tight", "Normal", "Loose"};
         snprintf(spacingLabel, sizeof(spacingLabel), "Spacing: %s",
@@ -78,9 +84,10 @@ ViewResult run() {
 
     buildLabels();
 
-    const int itemCount = 6;
+    const int itemCount = 7;
     MenuItem items[itemCount] = {
         {fontLabel, true},
+        {boldLabel, true},
         {spacingLabel, true},
         {refreshLabel, true},
         {scrollLabel, true},
@@ -120,15 +127,21 @@ ViewResult run() {
             case Event::SELECT:
             case Event::MENU:
                 switch (selected) {
-                    case 0:
-                        Settings::setFontSize(Settings::fontSize() == 12 ? 16 : 12);
+                    case 0: {
+                        uint8_t cur = Settings::fontSize();
+                        uint8_t next = (cur == 12) ? 16 : (cur == 16) ? 18 : 12;
+                        Settings::setFontSize(next);
                         break;
-                    case 1: {
+                    }
+                    case 1:
+                        Settings::setBoldEnabled(!Settings::boldEnabled());
+                        break;
+                    case 2: {
                         uint8_t cur = Settings::lineSpacing();
                         Settings::setLineSpacing((cur + 1) % 3);
                         break;
                     }
-                    case 2: {
+                    case 3: {
                         uint8_t cur = Settings::refreshInterval();
                         static const uint8_t opts[] = {5, 10, 20, 50, 100};
                         uint8_t next = opts[0];
@@ -138,13 +151,13 @@ ViewResult run() {
                         Settings::setRefreshInterval(next);
                         break;
                     }
-                    case 3:
+                    case 4:
                         Settings::setInvertScroll(!Settings::invertScroll());
                         break;
-                    case 4:
+                    case 5:
                         Settings::setAutoResume(!Settings::autoResume());
                         break;
-                    case 5: {
+                    case 6: {
                         uint8_t cur = Settings::autoSleepMinutes();
                         static const uint8_t opts[] = {0, 5, 10, 30};
                         uint8_t next = opts[0];

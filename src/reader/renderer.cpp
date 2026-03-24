@@ -84,18 +84,16 @@ static int16_t renderBoldLine(const char* text, int16_t x, int16_t y,
 }
 
 int16_t renderLine(const char* line, int16_t x, int16_t y, int16_t maxX) {
-    const FontDef& bodyFont = Settings::bodyFont();
-
     // Empty line — paragraph spacing
     if (line[0] == '\0') {
-        return y + bodyFont.lineHeight + LINE_SPACING;
+        return y + font_regular.lineHeight + LINE_SPACING;
     }
 
     // Horizontal rule: ---  ***  ___
     if (strcmp(line, "---") == 0 || strcmp(line, "***") == 0 || strcmp(line, "___") == 0) {
-        int16_t ruleY = y + bodyFont.lineHeight / 2;
+        int16_t ruleY = y + font_regular.lineHeight / 2;
         UI::drawHorizontalRule(x, ruleY, maxX - x);
-        return y + bodyFont.lineHeight + LINE_SPACING;
+        return y + font_regular.lineHeight + LINE_SPACING;
     }
 
     // H1: # Title
@@ -111,7 +109,7 @@ int16_t renderLine(const char* line, int16_t x, int16_t y, int16_t maxX) {
     }
 
     // Regular text (may contain **bold** segments)
-    return renderBoldLine(line, x, y, maxX, bodyFont);
+    return renderBoldLine(line, x, y, maxX, font_regular);
 }
 
 int16_t renderPage(const char* text, int16_t x, int16_t y, int16_t maxX, int16_t maxY) {

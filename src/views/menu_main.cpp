@@ -4,6 +4,7 @@
 #include "../input/input.h"
 #include "../storage/library.h"
 #include "../bookmarks/bookmarks.h"
+#include "../settings/settings.h"
 #include "../fonts/fonts.h"
 
 namespace MenuMain {
@@ -79,12 +80,42 @@ static void drawPreviewForItem(int8_t idx, bool hasResume, const BookEntry* resu
             break;
         }
         case 4: {
-            // Settings
+            // Settings — show current values
+            static char fontLine[24], boldLine[24], spaceLine[24], refreshLine[24];
+            static char scrollLine[24], resumeLine[24], sleepLine[24];
+
+            const char* fName = "Small";
+            if (Settings::fontSize() == 16) fName = "Medium";
+            else if (Settings::fontSize() == 18) fName = "Large";
+            snprintf(fontLine, sizeof(fontLine), "Font: %s", fName);
+            snprintf(boldLine, sizeof(boldLine), "Bold: %s",
+                     Settings::boldEnabled() ? "On" : "Off");
+            const char* spNames[] = {"Tight", "Normal", "Loose"};
+            snprintf(spaceLine, sizeof(spaceLine), "Spacing: %s",
+                     spNames[Settings::lineSpacing()]);
+            snprintf(refreshLine, sizeof(refreshLine), "Refresh: %d pages",
+                     Settings::refreshInterval());
+            snprintf(scrollLine, sizeof(scrollLine), "Scroll: %s",
+                     Settings::invertScroll() ? "Inverted" : "Normal");
+            snprintf(resumeLine, sizeof(resumeLine), "Auto Resume: %s",
+                     Settings::autoResume() ? "On" : "Off");
+            uint8_t sl = Settings::autoSleepMinutes();
+            if (sl == 0)
+                snprintf(sleepLine, sizeof(sleepLine), "Auto Sleep: Off");
+            else
+                snprintf(sleepLine, sizeof(sleepLine), "Auto Sleep: %dm", sl);
+
             PreviewLine lines[] = {
                 {"Settings", &font_medium},
-                {"Coming soon...", nullptr},
+                {fontLine, nullptr},
+                {boldLine, nullptr},
+                {spaceLine, nullptr},
+                {refreshLine, nullptr},
+                {scrollLine, nullptr},
+                {resumeLine, nullptr},
+                {sleepLine, nullptr},
             };
-            UI::drawRightPreview(lines, 2);
+            UI::drawRightPreview(lines, 8);
             break;
         }
     }
@@ -120,7 +151,7 @@ ViewResult run() {
         UI::drawLeftPanel(items, itemCount, selected, -1, true);
         UI::drawDivider();
         drawPreviewForItem(selected, hasResume, resumeBook);
-        UI::drawBatteryTopRight();
+        UI::drawBatteryBottomRight();
     };
 
     // Initial draw

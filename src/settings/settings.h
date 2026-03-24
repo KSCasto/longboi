@@ -21,7 +21,6 @@ void save();
 // 16 = large (8px wide, 16px tall, EPD font)
 uint8_t fontSize();
 void setFontSize(uint8_t size);
-const FontDef& bodyFont();
 
 // --- Line spacing ------------------------------------------------------------
 // 0 = tight, 1 = normal (default), 2 = loose
@@ -50,5 +49,10 @@ void setAutoResume(bool enabled);
 // Options: 0, 5, 10, 30.
 uint8_t autoSleepMinutes();
 void setAutoSleepMinutes(uint8_t minutes);
+
+// --- Bold text ---------------------------------------------------------------
+// true = use bold font variants everywhere
+bool boldEnabled();
+void setBoldEnabled(bool enabled);
 
 }  // namespace Settings
