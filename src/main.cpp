@@ -55,7 +55,7 @@ static bool bootInit() {
     // Initialize display
     Display::init();
     UI::drawCenteredMessage("THE LOOK", font_splash);
-    Display::update(true);
+    Display::update();
 
     // Initialize input
     Input::init();
@@ -63,7 +63,7 @@ static bool bootInit() {
     // Initialize SD card
     if (!SDManager::init()) {
         UI::drawCenteredMessage("SD Card Error!", font_medium);
-        Display::update(true);
+        Display::update();
         Serial.println("[Boot] SD card failed");
         // Wait for user to fix and reboot
         while (true) { delay(1000); }
@@ -123,7 +123,7 @@ static void runUpload() {
     UI::drawString(rx, ry, "Press MENU to exit", font_regular, COL_BLACK);
 
     UI::drawDivider();
-    Display::update(true);
+    Display::update();
 
     // Flush any stale events from menu navigation or WiFi init noise
     Input::flush();
@@ -149,7 +149,7 @@ static AppState runReading() {
 
     if (!Reader::open(g_bookToOpen.c_str())) {
         UI::drawCenteredMessage("Failed to open book", font_regular);
-        Display::update(true);
+        Display::update();
         delay(1500);
         return AppState::MAIN_MENU;
     }
