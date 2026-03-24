@@ -30,7 +30,7 @@ void init() {
     Paint_NewImage(ImageBW, EPD_W, EPD_H, 180, WHITE);
     Paint_Clear(WHITE);
 
-    update(true);
+    update();
 }
 
 uint8_t* getBuffer() {

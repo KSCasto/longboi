@@ -12,7 +12,7 @@ static uint16_t curPage = 0;
 static String bookFilename;
 static char* pageTextBuf = nullptr;
 static const size_t PAGE_TEXT_BUF_SIZE = 8192;  // Max bytes per page
-static bool needsFullRefresh = true;  // First render after open uses full refresh
+static bool needsFullRefresh = false;
 
 // Reflow hard-wrapped paragraphs: replace paragraph-internal \n with space.
 // Preserves blank lines (\n\n) and lines starting with # (headings).
@@ -71,7 +71,7 @@ bool open(const char* filename) {
 
     // Show loading screen
     UI::drawCenteredMessage("Loading...", font_medium);
-    Display::update(true);
+    Display::update();
 
     // Build full path
     String fullPath = String(PATH_BOOKS) + "/" + filename;
@@ -109,7 +109,6 @@ bool open(const char* filename) {
     // Mark as reading
     Library::setEntry(filename, BookStatus::READING, curPage, curByteOffset());
 
-    needsFullRefresh = true;  // First page render should do full refresh
     return true;
 }
 
@@ -180,7 +179,6 @@ bool goToPage(uint16_t page) {
     page &= ~1;  // Snap to even for spread
     if (page >= paginator.totalPages()) return false;
     curPage = page;
-    needsFullRefresh = true;
     Library::setEntry(bookFilename, BookStatus::READING, curPage, curByteOffset());
     return true;
 }

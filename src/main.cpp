@@ -180,14 +180,10 @@ static AppState runReading() {
                                                         Reader::totalPages());
                 switch (mr) {
                     case ReadingMenuResult::RESUME:
-                        // Continue reading — re-render current page
-                        Reader::forceFullRefresh();
                         Reader::renderCurrentPage();
                         break;
 
                     case ReadingMenuResult::ADD_BOOKMARK:
-                        // Already handled in menu_reading.cpp
-                        Reader::forceFullRefresh();
                         Reader::renderCurrentPage();
                         break;
 
@@ -208,7 +204,6 @@ static AppState runReading() {
 
                     case ReadingMenuResult::GO_TO_PAGE:
                         Reader::goToPage(MenuReading::getChosenPage());
-                        Reader::forceFullRefresh();
                         Reader::renderCurrentPage();
                         break;
 
@@ -236,6 +231,17 @@ static AppState runReading() {
 
 void setup() {
     bootInit();
+
+    if (Settings::autoResume()) {
+        const BookEntry* resume = Library::getResumeBook();
+        if (resume) {
+            g_bookToOpen = resume->filename;
+            g_pageToOpen = resume->page;
+            state = AppState::READING;
+            return;
+        }
+    }
+
     state = AppState::MAIN_MENU;
 }
 
