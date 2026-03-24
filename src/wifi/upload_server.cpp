@@ -243,7 +243,7 @@ void stop() {
 
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_OFF);
-    setCpuFrequencyMhz(240);  // Back to normal
+    setCpuFrequencyMhz(80);  // Back to idle speed
     running = false;
     Serial.println("[WiFi] Server stopped");
 }

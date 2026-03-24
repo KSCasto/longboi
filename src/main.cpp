@@ -147,12 +147,15 @@ static void runUpload() {
 static AppState runReading() {
     if (g_bookToOpen.isEmpty()) return AppState::MAIN_MENU;
 
+    setCpuFrequencyMhz(240);  // Boost for pagination
     if (!Reader::open(g_bookToOpen.c_str())) {
+        setCpuFrequencyMhz(80);
         UI::drawCenteredMessage("Failed to open book", font_regular);
         Display::update();
         delay(1500);
         return AppState::MAIN_MENU;
     }
+    setCpuFrequencyMhz(80);  // Back to idle for reading
 
     if (g_pageToOpen > 0) {
         Reader::goToPage(g_pageToOpen);
@@ -243,6 +246,10 @@ void setup() {
     }
 
     state = AppState::MAIN_MENU;
+
+    // Boot complete — drop to low-power idle speed
+    // (80MHz minimum for ESP32-S3 with OPI PSRAM)
+    setCpuFrequencyMhz(80);
 }
 
 void loop() {
