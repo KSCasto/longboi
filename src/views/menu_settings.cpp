@@ -105,7 +105,7 @@ ViewResult run() {
     };
 
     redraw();
-    Display::update(true);
+    Display::update();
 
     while (true) {
         Event e = Input::poll();

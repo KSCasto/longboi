@@ -36,7 +36,7 @@ CompletionResult run(const char* bookFilename) {
     };
 
     draw();
-    Display::update(true);
+    Display::update();
 
     while (true) {
         Event e = Input::poll();
@@ -47,7 +47,7 @@ CompletionResult run(const char* bookFilename) {
             case Event::SCROLL_DOWN:
                 selected = 1 - selected;
                 draw();
-                Display::update(true);
+                Display::update();
                 break;
 
             case Event::SELECT:

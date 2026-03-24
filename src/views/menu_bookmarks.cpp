@@ -14,7 +14,7 @@ ViewResult run() {
 
     if (books.empty()) {
         UI::drawCenteredMessage("No bookmarks", font_regular);
-        Display::update(true);
+        Display::update();
         while (true) {
             Event e = Input::poll();
             if (e != Event::NONE) return ViewResult::MAIN_MENU;
@@ -69,7 +69,7 @@ ViewResult run() {
     UI::drawLeftPanel(leftItems, leftCount, selected, -1, true);
     UI::drawDivider();
     drawPreview(selected);
-    Display::update(true);
+    Display::update();
 
     while (true) {
         Event e = Input::poll();
@@ -101,7 +101,7 @@ ViewResult run() {
                         UI::drawLeftPanel(leftItems, leftCount, -1, selected, false);
                         UI::drawRightMenu(rightItems, rightCount, rightSelected);
                         UI::drawDivider();
-                        Display::update(true);
+                        Display::update();
                     }
                     break;
 
@@ -145,7 +145,7 @@ ViewResult run() {
                     UI::drawLeftPanel(leftItems, leftCount, selected, -1, true);
                     drawPreview(selected);
                     UI::drawDivider();
-                    Display::update(true);
+                    Display::update();
                     break;
 
                 default: break;

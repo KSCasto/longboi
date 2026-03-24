@@ -37,7 +37,7 @@ ViewResult run() {
 
     if (allEntries.empty()) {
         UI::drawCenteredMessage("No books found", font_regular);
-        Display::update(true);
+        Display::update();
         while (true) {
             Event e = Input::poll();
             if (e != Event::NONE) return ViewResult::MAIN_MENU;
@@ -143,7 +143,7 @@ ViewResult run() {
     UI::drawLeftPanel(leftItems, totalItems, selected, -1, true);
     UI::drawDivider();
     if (totalItems > 1) drawBookPreview(0);
-    Display::update(true);
+    Display::update();
 
     while (true) {
         Event e = Input::poll();
@@ -183,7 +183,7 @@ ViewResult run() {
                         Display::clearBuffer();
                         UI::drawLeftPanel(leftItems, totalItems, selected, -1, true);
                         UI::drawDivider();
-                        Display::update(true);
+                        Display::update();
                     } else {
                         // Activate right panel submenu
                         rightActive = true;
@@ -241,7 +241,7 @@ ViewResult run() {
                             UI::drawLeftPanel(leftItems, totalItems, selected, -1, true);
                             UI::drawDivider();
                             if (selected > 0) drawBookPreview(selected - 1);
-                            Display::update(true);
+                            Display::update();
                             break;
                         }
 
@@ -249,7 +249,7 @@ ViewResult run() {
                             // Delete — confirm
                             Display::clearBuffer();
                             UI::drawConfirmDialog("Delete this book?", true);
-                            Display::update(true);
+                            Display::update();
 
                             bool yesSelected = true;
                             while (true) {
@@ -260,7 +260,7 @@ ViewResult run() {
                                     yesSelected = !yesSelected;
                                     Display::clearBuffer();
                                     UI::drawConfirmDialog("Delete this book?", yesSelected);
-                                    Display::update(true);
+                                    Display::update();
                                 } else if (ce == Event::SELECT || ce == Event::MENU) {
                                     if (yesSelected) {
                                         String path = String(PATH_BOOKS) + "/" + book.filename;
@@ -286,7 +286,7 @@ ViewResult run() {
                             } else {
                                 UI::drawCenteredMessage("No books", font_regular);
                             }
-                            Display::update(true);
+                            Display::update();
                             break;
                         }
 

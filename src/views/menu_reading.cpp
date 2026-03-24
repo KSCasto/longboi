@@ -30,7 +30,7 @@ static uint16_t runPagePicker(uint16_t currentPage, uint16_t totalPages) {
     };
 
     drawPicker();
-    Display::update(true);
+    Display::update();
 
     while (true) {
         // Check raw GPIO before event poll for hold-to-repeat
@@ -115,7 +115,7 @@ ReadingMenuResult run(const char* bookFilename, uint16_t currentPage,
     };
 
     drawOverlay();
-    Display::update(true);
+    Display::update();
 
     while (true) {
         Event e = Input::poll();
@@ -141,7 +141,7 @@ ReadingMenuResult run(const char* bookFilename, uint16_t currentPage,
                         // Add Bookmark
                         Bookmarks::save(bookFilename, currentPage);
                         UI::drawCenteredMessage("Bookmark saved!", font_regular);
-                        Display::update(true);
+                        Display::update();
                         delay(800);
                         return ReadingMenuResult::RESUME;
                     }
